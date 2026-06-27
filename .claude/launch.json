@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "gastos-dev",
+      "runtimeExecutable": "/Users/bernardo/.local/node-v24.18.0-darwin-arm64/bin/npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "/Users/bernardo/gastos-familia"],
+      "port": 5173
+    }
+  ]
+}
