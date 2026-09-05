@@ -16,6 +16,14 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
+html, body {
+  /* Permite scroll normal en ambos ejes pero excluye pinch-zoom y el
+     doble-tap-zoom del contenido, para que la PWA instalada se sienta
+     nativa. Ver también los listeners de gesturestart en main.jsx
+     (Safari/iOS ignora touch-action para el gesto de pellizco en
+     versiones previas a iOS 17). */
+  touch-action: pan-x pan-y;
+}
 body {
   margin: 0;
   background: var(--bg);
