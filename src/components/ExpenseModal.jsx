@@ -3,7 +3,8 @@ import { useApp } from '../context/AppContext'
 import { todayISO } from '../lib/format'
 
 export default function ExpenseModal({ onClose }) {
-  const { categories, addExpense } = useApp()
+  const { categories: allCategories, addExpense } = useApp()
+  const categories = allCategories.filter((c) => c.is_active)
   const [amount, setAmount] = useState('')
   const [categoryId, setCategoryId] = useState(categories[0]?.id || '')
   const [spentAt, setSpentAt] = useState(todayISO())

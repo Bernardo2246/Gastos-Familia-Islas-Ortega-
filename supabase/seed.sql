@@ -18,17 +18,18 @@ begin
     insert into households(name) values ('Familia') returning id into v_household;
   end if;
 
-  -- Miembros
-  insert into members(household_id, name, is_active)
-  select v_household, x.name, x.active
+  -- Miembros ("Renta" es una fuente de ingreso, no una persona: aporta pero
+  -- no debe aparecer para elegir "quién eres" al iniciar sesión)
+  insert into members(household_id, name, is_active, is_person)
+  select v_household, x.name, x.active, x.person
   from (values
-    ('Angel',   true),
-    ('Rol',     true),
-    ('Renta',   true),
-    ('Gisela',  true),
-    ('Futuro 1',false),
-    ('Futuro 2',false)
-  ) as x(name, active)
+    ('Angel',   true,  true),
+    ('Rol',     true,  true),
+    ('Renta',   true,  false),
+    ('Gisela',  true,  true),
+    ('Futuro 1',false, true),
+    ('Futuro 2',false, true)
+  ) as x(name, active, person)
   where not exists (
     select 1 from members m where m.household_id = v_household and m.name = x.name
   );

@@ -23,6 +23,9 @@ create table if not exists members (
   name          text not null,
   auth_user_id  uuid references auth.users(id),
   is_active     boolean not null default true,
+  -- false = no es una persona real (ej. "Renta" como fuente de ingreso):
+  -- puede ser aportante, pero no debe aparecer en "¿Quién eres?" / "Quién registra".
+  is_person     boolean not null default true,
   created_at    timestamptz not null default now()
 );
 

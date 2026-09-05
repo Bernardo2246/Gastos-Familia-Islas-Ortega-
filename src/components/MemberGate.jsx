@@ -2,7 +2,9 @@ import { useApp } from '../context/AppContext'
 
 export default function MemberGate() {
   const { members, setActiveMemberId } = useApp()
-  const active = members.filter((m) => m.is_active)
+  // Solo personas reales pueden "iniciar sesión" como quién registra —
+  // un aportante como "Renta" (ingreso, no persona) no debe aparecer aquí.
+  const active = members.filter((m) => m.is_active && m.is_person !== false)
 
   return (
     <div className="center-screen">

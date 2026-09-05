@@ -108,7 +108,7 @@ export function AppProvider({ children }) {
       const householdId = hh?.id
       const [{ data: mem }, { data: cat }] = await Promise.all([
         supabase.from('members').select('*').eq('household_id', householdId).order('created_at'),
-        supabase.from('categories').select('*').eq('household_id', householdId).eq('is_active', true).order('sort_order'),
+        supabase.from('categories').select('*').eq('household_id', householdId).order('sort_order'),
       ])
       setHousehold(hh)
       setMembers(mem || [])
@@ -312,17 +312,61 @@ export function AppProvider({ children }) {
     await persistRow('income_targets', row)
   }, [incomeTargets, monthRecord, persistRow])
 
-  const setTotalBudget = useCallback(async (amount) => {
-    if (!monthRecord) return
-    const row = { ...monthRecord, total_budget: Number(amount) }
-    setMonthRecord(row)
-    await persistRow('months', row)
-  }, [monthRecord, persistRow])
-
   const createMonth = useCallback(async (year, month) => {
     if (!household) return
     await loadMonth(household.id, year, month, { autoCreate: true })
   }, [household, loadMonth])
+
+  // Alta de aportante (sin necesidad de login: auth_user_id queda en null).
+  // Devuelve el id del nuevo miembro. Si hay mes actual y meta, la registra.
+  const addMember = useCallback(async (name, monthlyTarget) => {
+    if (!household) return null
+    const id = crypto.randomUUID()
+    const row = {
+      id, household_id: household.id, name: name.trim(),
+      auth_user_id: null, is_active: true, created_at: new Date().toISOString(),
+    }
+    setMembers((x) => [...x, row])
+    await persistRow('members', row)
+    if (monthRecord && Number(monthlyTarget) > 0) {
+      const t = { id: crypto.randomUUID(), month_id: monthRecord.id, member_id: id, target_amount: Number(monthlyTarget) }
+      setIncomeTargets((x) => upsertById(x, t))
+      await persistRow('income_targets', t)
+    }
+    return id
+  }, [household, monthRecord, persistRow])
+
+  const updateMemberName = useCallback(async (id, name) => {
+    const existing = members.find((m) => m.id === id)
+    if (!existing) return
+    const row = { ...existing, name: name.trim() }
+    setMembers((x) => x.map((m) => (m.id === id ? row : m)))
+    await persistRow('members', row)
+  }, [members, persistRow])
+
+  const setMemberActive = useCallback(async (id, isActive) => {
+    const existing = members.find((m) => m.id === id)
+    if (!existing) return
+    const row = { ...existing, is_active: isActive }
+    setMembers((x) => x.map((m) => (m.id === id ? row : m)))
+    await persistRow('members', row)
+  }, [members, persistRow])
+
+  const updateCategoryName = useCallback(async (id, name) => {
+    const existing = categories.find((c) => c.id === id)
+    if (!existing) return
+    const row = { ...existing, name: name.trim() }
+    setCategories((x) => x.map((c) => (c.id === id ? row : c)))
+    await persistRow('categories', row)
+  }, [categories, persistRow])
+
+  const setCategoryActive = useCallback(async (id, isActive) => {
+    const existing = categories.find((c) => c.id === id)
+    if (!existing) return
+    const row = { ...existing, is_active: isActive }
+    setCategories((x) => x.map((c) => (c.id === id ? row : c)))
+    await persistRow('categories', row)
+  }, [categories, persistRow])
 
   const goToMonth = useCallback((year, month) => setYm({ year, month }), [])
   const shiftMonth = useCallback((delta) => {
@@ -339,16 +383,23 @@ export function AppProvider({ children }) {
     const budgetByCat = {}
     for (const b of monthBudgets) budgetByCat[b.category_id] = Number(b.assigned_amount)
 
-    const categoryBalances = categories.map((c) => {
-      const assigned = budgetByCat[c.id] || 0
-      const spent = spentByCat[c.id] || 0
-      return { ...c, assigned, spent, remaining: assigned - spent }
-    })
+    // Igual que con los aportantes: una categoría oculta deja de aparecer en el
+    // uso normal del mes, salvo que ya tenga presupuesto o gasto asignado ese mes
+    // (para no perder el dato histórico si se ocultó a medio mes).
+    const categoryBalances = categories
+      .filter((c) => c.is_active || budgetByCat[c.id] || spentByCat[c.id])
+      .map((c) => {
+        const assigned = budgetByCat[c.id] || 0
+        const spent = spentByCat[c.id] || 0
+        return { ...c, assigned, spent, remaining: assigned - spent }
+      })
 
     const totalSpent = expenses.reduce((s, e) => s + Number(e.amount), 0)
-    const totalBudget = monthRecord ? Number(monthRecord.total_budget) : 0
-    const totalRemaining = totalBudget - totalSpent
+    // El presupuesto total del mes se calcula siempre como la suma de lo asignado
+    // por categoría — no es un valor independiente que se edite aparte.
     const assignedSum = monthBudgets.reduce((s, b) => s + Number(b.assigned_amount), 0)
+    const totalBudget = assignedSum
+    const totalRemaining = totalBudget - totalSpent
 
     const contribByMember = {}
     for (const c of contributions) contribByMember[c.member_id] = (contribByMember[c.member_id] || 0) + Number(c.amount)
@@ -382,7 +433,9 @@ export function AppProvider({ children }) {
     ...derived,
     // acciones
     signIn, signOut, addExpense, addContribution, deleteExpense, deleteContribution,
-    setCategoryBudget, setMemberTarget, setTotalBudget, createMonth,
+    setCategoryBudget, setMemberTarget, createMonth,
+    addMember, updateMemberName, setMemberActive,
+    updateCategoryName, setCategoryActive,
     goToMonth, shiftMonth, reloadMonth,
   }
 
