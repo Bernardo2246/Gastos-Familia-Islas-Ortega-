@@ -6,7 +6,7 @@ import Meter from './Meter'
 export default function GlobalView() {
   const {
     monthMissing, createMonth, ym,
-    totalBudget, totalSpent, totalRemaining,
+    totalSpent,
     incomeGoal, totalCollected, incomePending,
     categoryBalances, expenses,
   } = useApp()
@@ -25,16 +25,20 @@ export default function GlobalView() {
     )
   }
 
-  const neg = totalRemaining < 0
+  // Efectivo real disponible: lo recaudado menos lo gastado (no la meta
+  // de presupuesto menos lo gastado, que asume dinero que quizá no se ha
+  // recaudado todavía).
+  const cashAvailable = totalCollected - totalSpent
+  const neg = cashAvailable < 0
   const topCats = [...categoryBalances].sort((a, b) => a.remaining - b.remaining).slice(0, 4)
 
   return (
     <div className="content">
       <div className="hero">
         <div className="label">Restante del mes</div>
-        <div className={`amount ${neg ? 'neg' : ''}`}>{money(totalRemaining)}</div>
-        <div className="sub">Gastado {money(totalSpent)} de {money(totalBudget)}</div>
-        <div className="meter"><span style={{ width: `${Math.min(100, totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0)}%` }} /></div>
+        <div className={`amount ${neg ? 'neg' : ''}`}>{money(cashAvailable)}</div>
+        <div className="sub">Gastado {money(totalSpent)} de {money(totalCollected)} recaudado</div>
+        <div className="meter"><span style={{ width: `${Math.min(100, totalCollected > 0 ? (totalSpent / totalCollected) * 100 : 0)}%` }} /></div>
       </div>
 
       <div className="stat-grid">
