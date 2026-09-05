@@ -5,6 +5,7 @@ const items = [
   { to: '/categorias', ico: '📊', label: 'Categorías' },
   { to: '/aportaciones', ico: '👥', label: 'Aportaciones' },
   { to: '/historial', ico: '🗓️', label: 'Historial' },
+  { to: '/dashboard', ico: '📈', label: 'Análisis' },
 ]
 
 export default function BottomNav() {

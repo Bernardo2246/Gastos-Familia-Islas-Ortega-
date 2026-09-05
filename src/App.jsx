@@ -12,6 +12,7 @@ import CategoryDetail from './components/CategoryDetail'
 import ContributionsView from './components/ContributionsView'
 import MemberDetail from './components/MemberDetail'
 import HistoryView from './components/HistoryView'
+import DashboardView from './components/DashboardView'
 import SettingsView from './components/SettingsView'
 import ExpenseModal from './components/ExpenseModal'
 import ContributionModal from './components/ContributionModal'
@@ -35,6 +36,9 @@ export default function App() {
   const openExpense = () => { setFabOpen(false); setModal('expense') }
   const openContribution = () => { setFabOpen(false); setModal('contribution') }
 
+  // El botón flotante no aparece en vistas de solo lectura / configuración.
+  const hideFab = location.pathname === '/ajustes' || location.pathname === '/dashboard'
+
   return (
     <div className="app">
       <Header />
@@ -45,11 +49,12 @@ export default function App() {
         <Route path="/aportaciones" element={<ContributionsView />} />
         <Route path="/aportaciones/:id" element={<MemberDetail />} />
         <Route path="/historial" element={<HistoryView />} />
+        <Route path="/dashboard" element={<DashboardView />} />
         <Route path="/ajustes" element={<SettingsView />} />
         <Route path="*" element={<GlobalView />} />
       </Routes>
 
-      {location.pathname !== '/ajustes' && (
+      {!hideFab && (
         <>
           {fabOpen && (
             <div className="sheet-overlay" style={{ background: 'rgba(0,0,0,.35)' }} onClick={() => setFabOpen(false)}>
