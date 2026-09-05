@@ -159,6 +159,38 @@ left join (
 ) co on co.month_id = it.month_id and co.member_id = it.member_id;
 
 -- ============================================================
+-- TRIGGER: mantener months.total_budget sincronizado con la suma de
+-- month_budgets.assigned_amount del mes. Antes era un valor fijo que
+-- solo se copiaba del mes anterior al crear el mes y luego se
+-- desincronizaba en cuanto se editaba el presupuesto de una categoría
+-- (ver create_month más abajo, que ya no necesita clonarlo a mano).
+-- ============================================================
+create or replace function sync_month_total_budget() returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_month_id uuid := coalesce(new.month_id, old.month_id);
+begin
+  update months
+  set total_budget = (
+    select coalesce(sum(assigned_amount), 0)
+    from month_budgets
+    where month_id = v_month_id
+  )
+  where id = v_month_id;
+  return null;
+end;
+$$;
+
+drop trigger if exists trg_sync_month_total_budget on month_budgets;
+create trigger trg_sync_month_total_budget
+after insert or update or delete on month_budgets
+for each row
+execute function sync_month_total_budget();
+
+-- ============================================================
 -- RPC: crear (o clonar) un mes nuevo a partir del mes previo
 -- Devuelve el id del mes objetivo. Idempotente: si ya existe, lo devuelve.
 -- ============================================================
@@ -174,7 +206,6 @@ as $$
 declare
   v_month_id   uuid;
   v_prev_id    uuid;
-  v_prev_budget numeric(12,2);
 begin
   -- ¿ya existe?
   select id into v_month_id
@@ -185,16 +216,17 @@ begin
   end if;
 
   -- mes anterior más reciente (por año/mes)
-  select id, total_budget into v_prev_id, v_prev_budget
+  select id into v_prev_id
   from months
   where household_id = p_household_id
     and (year * 12 + month) < (p_year * 12 + p_month)
   order by (year * 12 + month) desc
   limit 1;
 
-  -- crear el mes (clona total_budget si hay anterior)
-  insert into months (household_id, year, month, total_budget)
-  values (p_household_id, p_year, p_month, coalesce(v_prev_budget, 0))
+  -- crear el mes (total_budget arranca en 0 y el trigger de arriba lo
+  -- recalcula solo en cuanto se clonan/asignan los presupuestos abajo)
+  insert into months (household_id, year, month)
+  values (p_household_id, p_year, p_month)
   returning id into v_month_id;
 
   if v_prev_id is not null then
