@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
-import { enqueue, queueCount, saveCache, readCache } from '../lib/db'
+import { enqueue, queueCount, saveCache, readCache, dropQueuedUpserts, pendingDeleteIds } from '../lib/db'
 import { flushQueue } from '../lib/sync'
 import { todayISO } from '../lib/format'
 
@@ -133,6 +133,9 @@ export function AppProvider({ children }) {
     setError(null)
     setMonthMissing(false)
     const cacheKey = `month:${year}-${month}`
+    // Lo borrado sin conexión no se vuelve a mostrar mientras su borrado espera en la cola.
+    const [delEx, delCo] = await Promise.all([pendingDeleteIds('expenses'), pendingDeleteIds('contributions')])
+    const vivos = (rows, borrados) => (rows || []).filter((r) => !borrados.has(r.id))
     try {
       let { data: m } = await supabase
         .from('months')
@@ -166,8 +169,8 @@ export function AppProvider({ children }) {
       setMonthRecord(m)
       setMonthBudgets(mb || [])
       setIncomeTargets(it || [])
-      setExpenses(ex || [])
-      setContributions(co || [])
+      setExpenses(vivos(ex, delEx))
+      setContributions(vivos(co, delCo))
       await saveCache(cacheKey, {
         monthRecord: m, monthBudgets: mb || [], incomeTargets: it || [],
         expenses: ex || [], contributions: co || [],
@@ -178,8 +181,8 @@ export function AppProvider({ children }) {
         setMonthRecord(cached.monthRecord)
         setMonthBudgets(cached.monthBudgets)
         setIncomeTargets(cached.incomeTargets)
-        setExpenses(cached.expenses)
-        setContributions(cached.contributions)
+        setExpenses(vivos(cached.expenses, delEx))
+        setContributions(vivos(cached.contributions, delCo))
       } else {
         setError('No se pudo cargar el mes y no hay datos guardados sin conexión.')
       }
@@ -284,15 +287,28 @@ export function AppProvider({ children }) {
     await persistRow('contributions', row)
   }, [monthRecord, activeMemberId, persistRow])
 
+  // Borrado optimista: si la fila aún no se había subido, se quita de la cola;
+  // si no hay red o falla, el borrado entra a la cola y se sube al reconectar.
+  const removeRow = useCallback(async (table, id) => {
+    await dropQueuedUpserts(table, id)
+    let ok = false
+    if (navigator.onLine) {
+      const { error } = await supabase.from(table).delete().eq('id', id)
+      ok = !error
+    }
+    if (!ok) await enqueue({ table, op: 'delete', id })
+    await refreshPending()
+  }, [refreshPending])
+
   const deleteExpense = useCallback(async (id) => {
     setExpenses((x) => x.filter((r) => r.id !== id))
-    if (navigator.onLine) await supabase.from('expenses').delete().eq('id', id)
-  }, [])
+    await removeRow('expenses', id)
+  }, [removeRow])
 
   const deleteContribution = useCallback(async (id) => {
     setContributions((x) => x.filter((r) => r.id !== id))
-    if (navigator.onLine) await supabase.from('contributions').delete().eq('id', id)
-  }, [])
+    await removeRow('contributions', id)
+  }, [removeRow])
 
   const setCategoryBudget = useCallback(async (category_id, amount) => {
     const existing = monthBudgets.find((b) => b.category_id === category_id)

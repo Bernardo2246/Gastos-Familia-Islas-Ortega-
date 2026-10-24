@@ -18,7 +18,8 @@ const dbp = openDB(DB_NAME, DB_VERSION, {
 
 // ---------- Cola de sincronización ----------
 
-// mutation: { table: 'expenses'|'contributions', row: {...con id...} }
+// mutation: { table: 'expenses'|'contributions', row: {...con id...} }   → upsert
+//       o   { table: 'expenses'|'contributions', op: 'delete', id }       → borrado
 export async function enqueue(mutation) {
   const db = await dbp
   const item = {
@@ -39,6 +40,23 @@ export async function getQueue() {
 export async function dequeue(qid) {
   const db = await dbp
   await db.delete('queue', qid)
+}
+
+// Quita de la cola las altas pendientes de una fila (se borró antes de subirse:
+// si se quedaran, la cola la volvería a crear al reconectar).
+export async function dropQueuedUpserts(table, id) {
+  const db = await dbp
+  const all = await db.getAll('queue')
+  for (const item of all) {
+    if (item.table === table && item.op !== 'delete' && item.row?.id === id) await db.delete('queue', item.qid)
+  }
+}
+
+// Ids con borrado pendiente de subir, para no volver a mostrarlos al recargar.
+export async function pendingDeleteIds(table) {
+  const db = await dbp
+  const all = await db.getAll('queue')
+  return new Set(all.filter((i) => i.table === table && i.op === 'delete').map((i) => i.id))
 }
 
 export async function queueCount() {
