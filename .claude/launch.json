@@ -4,7 +4,7 @@
     {
       "name": "gastos-dev",
       "runtimeExecutable": "/Users/bernardo/.local/node-v24.18.0-darwin-arm64/bin/npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "/Users/bernardo/gastos-familia"],
+      "runtimeArgs": ["run", "dev", "--prefix", "/Users/bernardo/Developer/gastos-familia"],
       "port": 5173
     }
   ]
