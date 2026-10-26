@@ -6,7 +6,7 @@ import Meter from './Meter'
 export default function GlobalView() {
   const {
     monthMissing, createMonth, ym,
-    totalSpent,
+    totalSpent, totalRemaining,
     incomeGoal, totalCollected, incomePending,
     categoryBalances, expenses,
   } = useApp()
@@ -25,10 +25,8 @@ export default function GlobalView() {
     )
   }
 
-  // Efectivo real disponible: lo recaudado menos lo gastado (no la meta
-  // de presupuesto menos lo gastado, que asume dinero que quizá no se ha
-  // recaudado todavía).
-  const cashAvailable = totalCollected - totalSpent
+  // Restante = Recaudado − Gastado (lib/finance.js).
+  const cashAvailable = totalRemaining
   const neg = cashAvailable < 0
   const topCats = [...categoryBalances].sort((a, b) => a.remaining - b.remaining).slice(0, 4)
 

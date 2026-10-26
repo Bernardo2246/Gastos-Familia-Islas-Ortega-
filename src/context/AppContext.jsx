@@ -3,8 +3,10 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { enqueue, queueCount, saveCache, readCache, dropQueuedUpserts, pendingDeleteIds } from '../lib/db'
 import { flushQueue } from '../lib/sync'
 import { todayISO } from '../lib/format'
+import { monthView, withoutPendingDeletes } from '../lib/finance'
 
-const AppContext = createContext(null)
+// Exportado solo para que la vista previa de desarrollo (src/dev/) lo provea con datos falsos.
+export const AppContext = createContext(null)
 export const useApp = () => useContext(AppContext)
 
 const upsertById = (arr, row) => {
@@ -140,7 +142,6 @@ export function AppProvider({ children }) {
     const cacheKey = `month:${year}-${month}`
     // Lo borrado sin conexión no se vuelve a mostrar mientras su borrado espera en la cola.
     const [delEx, delCo] = await Promise.all([pendingDeleteIds('expenses'), pendingDeleteIds('contributions')])
-    const vivos = (rows, borrados) => (rows || []).filter((r) => !borrados.has(r.id))
     try {
       let { data: m } = await supabase
         .from('months')
@@ -174,8 +175,8 @@ export function AppProvider({ children }) {
       setMonthRecord(m)
       setMonthBudgets(mb || [])
       setIncomeTargets(it || [])
-      setExpenses(vivos(ex, delEx))
-      setContributions(vivos(co, delCo))
+      setExpenses(withoutPendingDeletes(ex, delEx))
+      setContributions(withoutPendingDeletes(co, delCo))
       await saveCache(cacheKey, {
         monthRecord: m, monthBudgets: mb || [], incomeTargets: it || [],
         expenses: ex || [], contributions: co || [],
@@ -186,8 +187,8 @@ export function AppProvider({ children }) {
         setMonthRecord(cached.monthRecord)
         setMonthBudgets(cached.monthBudgets)
         setIncomeTargets(cached.incomeTargets)
-        setExpenses(vivos(cached.expenses, delEx))
-        setContributions(vivos(cached.contributions, delCo))
+        setExpenses(withoutPendingDeletes(cached.expenses, delEx))
+        setContributions(withoutPendingDeletes(cached.contributions, delCo))
       } else {
         setError('No se pudo cargar el mes y no hay datos guardados sin conexión.')
       }
@@ -404,52 +405,11 @@ export function AppProvider({ children }) {
     })
   }, [])
 
-  // ---------- Cálculos derivados ----------
-  const derived = useMemo(() => {
-    const spentByCat = {}
-    for (const e of expenses) spentByCat[e.category_id] = (spentByCat[e.category_id] || 0) + Number(e.amount)
-    const budgetByCat = {}
-    for (const b of monthBudgets) budgetByCat[b.category_id] = Number(b.assigned_amount)
-
-    // Igual que con los aportantes: una categoría oculta deja de aparecer en el
-    // uso normal del mes, salvo que ya tenga presupuesto o gasto asignado ese mes
-    // (para no perder el dato histórico si se ocultó a medio mes).
-    const categoryBalances = categories
-      .filter((c) => c.is_active || budgetByCat[c.id] || spentByCat[c.id])
-      .map((c) => {
-        const assigned = budgetByCat[c.id] || 0
-        const spent = spentByCat[c.id] || 0
-        return { ...c, assigned, spent, remaining: assigned - spent }
-      })
-
-    const totalSpent = expenses.reduce((s, e) => s + Number(e.amount), 0)
-    // El presupuesto total del mes se calcula siempre como la suma de lo asignado
-    // por categoría — no es un valor independiente que se edite aparte.
-    const assignedSum = monthBudgets.reduce((s, b) => s + Number(b.assigned_amount), 0)
-    const totalBudget = assignedSum
-    const totalRemaining = totalBudget - totalSpent
-
-    const contribByMember = {}
-    for (const c of contributions) contribByMember[c.member_id] = (contribByMember[c.member_id] || 0) + Number(c.amount)
-    const targetByMember = {}
-    for (const t of incomeTargets) targetByMember[t.member_id] = Number(t.target_amount)
-
-    const memberRows = members
-      .filter((m) => m.is_active || targetByMember[m.id] != null || contribByMember[m.id])
-      .map((m) => {
-        const target = targetByMember[m.id] || 0
-        const contributed = contribByMember[m.id] || 0
-        return { ...m, target, contributed, pending: target - contributed, isComplete: target > 0 && contributed >= target }
-      })
-
-    const incomeGoal = incomeTargets.reduce((s, t) => s + Number(t.target_amount), 0)
-    const totalCollected = contributions.reduce((s, c) => s + Number(c.amount), 0)
-
-    return {
-      categoryBalances, totalSpent, totalBudget, totalRemaining, assignedSum,
-      memberRows, incomeGoal, totalCollected, incomePending: incomeGoal - totalCollected,
-    }
-  }, [categories, expenses, monthBudgets, members, contributions, incomeTargets])
+  // ---------- Cálculos derivados (fórmulas en lib/finance.js) ----------
+  const derived = useMemo(
+    () => monthView({ categories, members, expenses, contributions, monthBudgets, incomeTargets }),
+    [categories, members, expenses, contributions, monthBudgets, incomeTargets],
+  )
 
   const value = {
     // estado

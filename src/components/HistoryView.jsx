@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { money, monthLabel } from '../lib/format'
+import { monthSummaries } from '../lib/finance'
 
 export default function HistoryView() {
   const { household, goToMonth, createMonth, ym } = useApp()
@@ -13,13 +14,19 @@ export default function HistoryView() {
   const load = useCallback(async () => {
     if (!household) return
     setLoading(true)
-    const { data } = await supabase
-      .from('v_month_summary')
-      .select('*')
-      .eq('household_id', household.id)
-      .order('year', { ascending: false })
-      .order('month', { ascending: false })
-    setRows(data || [])
+    // Se calcula con lib/finance.js (no con la vista v_month_summary) para que
+    // el restante de cada mes sea el mismo que muestra Inicio.
+    const { data: months } = await supabase.from('months').select('id,year,month').eq('household_id', household.id)
+    const ids = (months || []).map((m) => m.id)
+    const [ex, co, mb] = ids.length ? await Promise.all([
+      supabase.from('expenses').select('month_id,category_id,amount').in('month_id', ids),
+      supabase.from('contributions').select('month_id,amount').in('month_id', ids),
+      supabase.from('month_budgets').select('month_id,category_id,assigned_amount').in('month_id', ids),
+    ]) : [{}, {}, {}]
+    const res = monthSummaries({
+      months: months || [], expenses: ex.data || [], contributions: co.data || [], budgets: mb.data || [],
+    })
+    setRows(res.reverse())
     setLoading(false)
   }, [household])
 
@@ -55,16 +62,16 @@ export default function HistoryView() {
       ) : (
         <div className="row-list">
           {rows.map((r) => {
-            const neg = Number(r.total_remaining) < 0
+            const neg = r.remaining < 0
             return (
-              <button key={r.month_id} className="row" onClick={() => open(r)} style={{ textAlign: 'left' }}>
+              <button key={r.id} className="row" onClick={() => open(r)} style={{ textAlign: 'left' }}>
                 <div className="row-top">
                   <span className="row-name">{monthLabel(r.year, r.month)}</span>
-                  <span className={`row-remain ${neg ? 'neg' : ''}`}>{money(r.total_remaining)}</span>
+                  <span className={`row-remain ${neg ? 'neg' : ''}`}>{money(r.remaining)}</span>
                 </div>
                 <div className="row-sub">
-                  <span>Gastado {money(r.total_spent)} de {money(r.total_budget)}</span>
-                  <span>Recaudado {money(r.total_collected)}</span>
+                  <span>Gastado {money(r.spent)} de {money(r.collected)}</span>
+                  <span>Presupuesto {money(r.budget)}</span>
                 </div>
               </button>
             )

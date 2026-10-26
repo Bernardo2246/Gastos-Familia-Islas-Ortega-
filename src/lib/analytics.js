@@ -1,10 +1,11 @@
 import { monthName } from './format'
+import { monthSummaries, sumMoney } from './finance'
 
 // Día del mes (1-31) a partir de una fecha ISO 'YYYY-MM-DD',
 // sin usar Date() para evitar corrimientos por zona horaria.
 const dayOf = (iso) => (iso ? Number(iso.slice(8, 10)) : 0)
 const chrono = (a, b) => a.year * 12 + a.month - (b.year * 12 + b.month)
-const sum = (arr, f = (x) => x) => arr.reduce((s, x) => s + Number(f(x) || 0), 0)
+const sum = sumMoney
 
 // Paleta estable para categorías (se reparte por orden).
 export const PALETTE = [
@@ -23,27 +24,13 @@ export function computeDashboard({
 }) {
   const sorted = [...months].sort(chrono)
 
-  // ---- Agregados por mes ----
-  const expByMonth = {}
-  const contByMonth = {}
-  const targetSumByMonth = {}
-  for (const e of expenses) expByMonth[e.month_id] = (expByMonth[e.month_id] || 0) + Number(e.amount)
-  for (const c of contributions) contByMonth[c.month_id] = (contByMonth[c.month_id] || 0) + Number(c.amount)
-  for (const t of targets) targetSumByMonth[t.month_id] = (targetSumByMonth[t.month_id] || 0) + Number(t.target_amount)
-
-  const perMonth = sorted.map((m) => {
-    const spent = expByMonth[m.id] || 0
-    const collected = contByMonth[m.id] || 0
-    const budget = Number(m.total_budget) || 0
-    const goal = targetSumByMonth[m.id] || 0
-    return {
-      id: m.id, year: m.year, month: m.month,
-      label: monthName(m.month).slice(0, 3),
-      spent, collected, budget, goal,
-      net: collected - spent,
-      withinBudget: budget > 0 && spent <= budget,
-    }
-  })
+  // ---- Agregados por mes (mismas fórmulas que el mes abierto: lib/finance.js) ----
+  const perMonth = monthSummaries({ months: sorted, expenses, contributions, budgets, targets }).map((p) => ({
+    ...p,
+    label: monthName(p.month).slice(0, 3),
+    net: p.remaining,
+    withinBudget: p.budget > 0 && p.spent <= p.budget,
+  }))
 
   // Ahorro/déficit acumulado mes a mes
   let run = 0
