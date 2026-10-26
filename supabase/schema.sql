@@ -99,7 +99,7 @@ create index if not exists idx_income_targets_month  on income_targets(month_id)
 -- ============================================================
 
 -- Saldo por categoría en cada mes
-create or replace view v_category_balances as
+create or replace view v_category_balances with (security_invoker = true) as
 select
   mb.month_id,
   m.household_id,
@@ -119,7 +119,7 @@ left join (
 ) e on e.month_id = mb.month_id and e.category_id = mb.category_id;
 
 -- Resumen global del mes
-create or replace view v_month_summary as
+create or replace view v_month_summary with (security_invoker = true) as
 select
   m.id            as month_id,
   m.household_id,
@@ -138,7 +138,7 @@ left join (select month_id, sum(target_amount) target_total from income_targets 
 left join (select month_id, sum(amount) collected   from contributions group by month_id) co on co.month_id = m.id;
 
 -- Aportación por persona en cada mes
-create or replace view v_member_contributions as
+create or replace view v_member_contributions with (security_invoker = true) as
 select
   it.month_id,
   m.household_id,
@@ -286,8 +286,14 @@ begin
   end loop;
 end $$;
 
+-- Las vistas usan security_invoker (aplican el RLS de quien consulta);
+-- además anon no tiene ningún privilegio sobre ellas.
+revoke all on v_category_balances, v_month_summary, v_member_contributions from anon;
+
 -- ============================================================
 -- REALTIME: publicar tablas que cambian en vivo
+-- Ojo: los DELETE no se pueden filtrar por columna (con RLS el `old`
+-- solo trae el id), así que el cliente los escucha sin filtro.
 -- ============================================================
 do $$
 begin
