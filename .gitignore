@@ -29,3 +29,8 @@ dist-ssr
 .dev.vars*
 !.dev.vars.example
 !.env.example
+
+# Sincronización con Obsidian: credencial de solo lectura y SQL con la contraseña
+.env.sync
+*.local.sql
+!.env.sync.example

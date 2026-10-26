@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "preview": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy",
-    "test": "vitest run"
+    "test": "vitest run",
+    "sync:obsidian": "node scripts/sync-obsidian.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",

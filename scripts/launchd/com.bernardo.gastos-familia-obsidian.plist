@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Sincroniza Gastos Familia → Obsidian cada 30 min y al iniciar sesión.
+     Instalar/desinstalar: ver "Sincronización con Obsidian" en el README. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.bernardo.gastos-familia-obsidian</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>/Users/bernardo/Developer/gastos-familia/scripts/sync-obsidian.sh</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>1800</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/bernardo/Library/Logs/gastos-familia-obsidian.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/bernardo/Library/Logs/gastos-familia-obsidian.log</string>
+</dict>
+</plist>
