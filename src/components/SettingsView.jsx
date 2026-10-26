@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { money } from '../lib/format'
 
+const buildLabel = new Intl.DateTimeFormat('es-MX', {
+  dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Mexico_City',
+}).format(new Date(__BUILD_TIME__))
+
 function NumberRow({ label, value, onSave }) {
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(String(value ?? 0))
@@ -193,6 +197,21 @@ export default function SettingsView() {
           </div>
         </>
       )}
+
+      <div className="section-title">Versión</div>
+      <div className="card">
+        <div className="tx">
+          <span className="tx-note">Compilada</span>
+          <span className="tx-amt">{buildLabel}</span>
+        </div>
+        <div className="tx">
+          <span className="tx-note">Commit</span>
+          <span className="tx-amt">{__COMMIT__}</span>
+        </div>
+        <div className="muted" style={{ fontSize: 12, padding: '4px 0 0' }}>
+          Si acabas de actualizar y esta fecha es vieja, cierra la app por completo y vuélvela a abrir.
+        </div>
+      </div>
 
       <button className="btn danger" onClick={signOut}>Cerrar sesión</button>
     </div>

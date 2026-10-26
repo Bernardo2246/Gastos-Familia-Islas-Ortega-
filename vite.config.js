@@ -3,8 +3,23 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 import { cloudflare } from "@cloudflare/vite-plugin";
+import { execSync } from 'node:child_process'
+
+// Fecha y commit del build: Ajustes → Versión los muestra para confirmar en el
+// iPhone que llegó el deploy nuevo (la PWA puede seguir con la versión vieja).
+const commit = (() => {
+  try {
+    const sha = execSync('git rev-parse --short HEAD').toString().trim()
+    const dirty = execSync('git status --porcelain --untracked-files=no').toString().trim() !== ''
+    return dirty ? `${sha}+cambios` : sha
+  } catch { return 'sin git' }
+})()
 
 export default defineConfig({
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    __COMMIT__: JSON.stringify(commit),
+  },
   plugins: [react(), VitePWA({
     registerType: 'autoUpdate',
     includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
