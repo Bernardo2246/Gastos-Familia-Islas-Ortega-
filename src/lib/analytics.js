@@ -7,12 +7,6 @@ const dayOf = (iso) => (iso ? Number(iso.slice(8, 10)) : 0)
 const chrono = (a, b) => a.year * 12 + a.month - (b.year * 12 + b.month)
 const sum = sumMoney
 
-// Paleta estable para categorías (se reparte por orden).
-export const PALETTE = [
-  '#15c08a', '#4f9dff', '#f5b945', '#ff7b9c', '#a78bfa',
-  '#38d6c4', '#ff9f43', '#6ee7b7', '#f472b6', '#60a5fa', '#fbbf24',
-]
-
 /**
  * Agrega los datos de varios meses en las estructuras que consume el Dashboard.
  * Todas las entradas ya vienen filtradas al rango seleccionado.
@@ -71,7 +65,7 @@ export function computeDashboard({
     catBudgetByMonth[b.category_id][b.month_id] = Number(b.assigned_amount)
   }
 
-  const perCategory = categories.map((c, i) => {
+  const perCategory = categories.map((c) => {
     const monthVals = sorted.map((m) => catSpentByMonth[c.id]?.[m.id] || 0)
     const spentTotal = sum(monthVals)
     const assignedTotal = sum(sorted, (m) => catBudgetByMonth[c.id]?.[m.id] || 0)
@@ -86,7 +80,7 @@ export function computeDashboard({
       if (a > 0 && s > a) overCount++
     }
     return {
-      id: c.id, name: c.name, color: PALETTE[i % PALETTE.length],
+      id: c.id, name: c.name,
       monthVals, spentTotal, assignedTotal, avg, min, max,
       range: max - min, std: Math.sqrt(variance), overCount,
     }
@@ -191,7 +185,7 @@ export function computeCategoryCarryover({ months = [], expenses = [], budgets =
   }
 
   const perCategory = categories
-    .map((c, i) => {
+    .map((c) => {
       let running = 0
       const history = sorted.map((m) => {
         const assigned = budgetByCatMonth[c.id]?.[m.id] || 0
@@ -205,7 +199,7 @@ export function computeCategoryCarryover({ months = [], expenses = [], budgets =
       const assignedTotal = sum(history, (h) => h.assigned)
       const spentTotal = sum(history, (h) => h.spent)
       return {
-        id: c.id, name: c.name, color: PALETTE[i % PALETTE.length],
+        id: c.id, name: c.name,
         history, balance: running, assignedTotal, spentTotal,
       }
     })

@@ -3,7 +3,12 @@ import { useApp } from '../context/AppContext'
 import { supabase } from '../lib/supabase'
 import { money, pct, monthLabel } from '../lib/format'
 import { computeDashboard, computeCategoryCarryover } from '../lib/analytics'
-import { GroupedBarChart, LineChart, Donut, ChartLegend } from './Charts'
+import { GroupedBarChart, LineChart, ChartLegend } from './Charts'
+
+// Paleta validada para el fondo oscuro (index.css → --series-*). Gastado y
+// aportado siempre en azul; lo planeado (presupuesto/meta) en naranja.
+const S1 = 'var(--series-1)'
+const S2 = 'var(--series-2)'
 
 const RANGES = [
   { key: '3', label: 'Últimos 3' },
@@ -150,9 +155,9 @@ export default function DashboardView() {
       </p>
 
       {/* ---------- Sección A: Resumen ---------- */}
-      <div className="hero" style={net < 0 ? { background: 'linear-gradient(160deg,#7a1f2b,#3d0a11)', borderColor: 'var(--line)' } : undefined}>
+      <div className={`hero ${net < 0 ? 'neg' : ''}`}>
         <div className="label">{net < 0 ? 'Déficit acumulado' : 'Ahorro acumulado'}</div>
-        <div className={`amount ${net < 0 ? 'neg' : ''}`}>{money(net)}</div>
+        <div className="amount">{money(net)}</div>
         <div className="sub">Recaudado {money(kpis.totalCollected)} − Gastado {money(kpis.totalSpent)}</div>
       </div>
 
@@ -175,19 +180,19 @@ export default function DashboardView() {
       <div className="section-title">Presupuesto en el tiempo</div>
       <div className="card chart-card">
         <div className="chart-title">Gastado vs presupuestado por mes</div>
-        <ChartLegend items={[{ name: 'Gastado', color: '#15c08a' }, { name: 'Presupuestado', color: '#4f9dff' }]} />
+        <ChartLegend items={[{ name: 'Gastado', color: S1 }, { name: 'Presupuestado', color: S2 }]} />
         <GroupedBarChart
           data={perMonth.map((p) => ({ label: p.label, values: [p.spent, p.budget] }))}
-          series={[{ name: 'Gastado', color: '#15c08a' }, { name: 'Presupuestado', color: '#4f9dff' }]}
+          series={[{ name: 'Gastado', color: S1 }, { name: 'Presupuestado', color: S2 }]}
         />
       </div>
       <div className="card chart-card">
         <div className="chart-title">Tendencia del gasto mensual</div>
-        <LineChart data={perMonth.map((p) => ({ label: p.label, value: p.spent }))} color="#15c08a" />
+        <LineChart name="Gastado" data={perMonth.map((p) => ({ label: p.label, value: p.spent }))} color={S1} />
       </div>
       <div className="card chart-card">
         <div className="chart-title">Ahorro / déficit acumulado</div>
-        <LineChart data={cumulative} color="#4f9dff" allowNegative />
+        <LineChart name="Acumulado" data={cumulative} color={S1} allowNegative />
       </div>
 
       {/* ---------- Saldo acumulado por categoría (tipo "sobre") ---------- */}
@@ -237,22 +242,14 @@ export default function DashboardView() {
         )}
       </div>
 
-      <div className="card chart-card">
-        <div className="chart-title">Distribución del gasto</div>
-        <div className="donut-wrap">
-          <Donut data={distribution.map((c) => ({ name: c.name, value: c.spentTotal, color: c.color }))}
-            centerLabel={money(kpis.totalSpent)} centerSub="total" />
-          <div className="donut-legend">
-            {distribution.slice(0, 8).map((c) => (
-              <div key={c.id} className="dl-row">
-                <span className="legend-dot" style={{ background: c.color }} />
-                <span className="dl-name">{c.name}</span>
-                <span className="dl-pct">{pct(c.pctOfSpend)}</span>
-                <span className="dl-plan muted">plan {pct(c.pctPlanned)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Barras ordenadas de un solo tono: con 11 sobres un donut no se lee
+          (y reciclaba colores). El % planeado va como texto para comparar. */}
+      <div className="card">
+        <div className="chart-title">Distribución del gasto · {money(kpis.totalSpent)}</div>
+        {distribution.map((c) => (
+          <HBar key={c.id} label={c.name} value={c.pctOfSpend} max={distribution[0]?.pctOfSpend || 1} color={S1}
+            caption={`${pct(c.pctOfSpend)} · plan ${pct(c.pctPlanned)}`} />
+        ))}
       </div>
 
       <div className="card">
@@ -297,7 +294,7 @@ export default function DashboardView() {
         {perMember.length === 0 ? <div className="empty" style={{ padding: 16 }}>Sin metas de aportación en el rango.</div> : (
           perMember.map((m) => (
             <HBar key={m.id} label={m.name} value={m.totalContrib} max={m.totalTarget || maxContribTarget}
-              color={m.complianceRate >= 1 ? 'var(--accent)' : '#4f9dff'}
+              color={m.complianceRate >= 1 ? 'var(--accent)' : S1}
               caption={`${pct(m.complianceRate)} · ${money(m.totalContrib)}/${money(m.totalTarget)}`} />
           ))
         )}
@@ -318,10 +315,10 @@ export default function DashboardView() {
 
       <div className="card chart-card">
         <div className="chart-title">Aportado vs meta por mes</div>
-        <ChartLegend items={[{ name: 'Aportado', color: '#15c08a' }, { name: 'Meta', color: '#f5b945' }]} />
+        <ChartLegend items={[{ name: 'Aportado', color: S1 }, { name: 'Meta', color: S2 }]} />
         <GroupedBarChart
           data={perMonth.map((p) => ({ label: p.label, values: [p.collected, p.goal] }))}
-          series={[{ name: 'Aportado', color: '#15c08a' }, { name: 'Meta', color: '#f5b945' }]}
+          series={[{ name: 'Aportado', color: S1 }, { name: 'Meta', color: S2 }]}
         />
       </div>
 
@@ -335,7 +332,7 @@ export default function DashboardView() {
             { label: 'Días 11–20', values: [thirds.medio] },
             { label: 'Días 21–31', values: [thirds.fin] },
           ]}
-          series={[{ name: 'Gasto', color: '#a78bfa' }]}
+          series={[{ name: 'Gasto', color: S1 }]}
         />
       </div>
       <div className="stat-grid">

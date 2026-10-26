@@ -22,11 +22,15 @@ export function num(n) {
   return new Intl.NumberFormat('es-MX').format(Number(n) || 0)
 }
 
-// Moneda compacta para ejes de gráficas: $8k, $1.2k, $500
+// Moneda compacta para ejes de gráficas: $1.3M, $8k, $1.2k, $500
 export function compactMoney(n) {
   const v = Number(n) || 0
   const abs = Math.abs(v)
   const sign = v < 0 ? '-' : ''
+  if (abs >= 1e6) {
+    const m = abs / 1e6
+    return `${sign}$${m >= 10 ? Math.round(m) : m.toFixed(1).replace('.0', '')}M`
+  }
   if (abs >= 1000) {
     const k = abs / 1000
     return `${sign}$${k >= 10 ? Math.round(k) : k.toFixed(1).replace('.0', '')}k`
