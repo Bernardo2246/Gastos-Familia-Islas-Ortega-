@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useApp } from './context/AppContext'
 import Header from './components/Header'
 import BottomNav from './components/BottomNav'
@@ -8,7 +8,6 @@ import SetupNotice from './components/SetupNotice'
 import MemberGate from './components/MemberGate'
 import GlobalView from './components/GlobalView'
 import CategoriesView from './components/CategoriesView'
-import CategoryDetail from './components/CategoryDetail'
 import ContributionsView from './components/ContributionsView'
 import MemberDetail from './components/MemberDetail'
 import HistoryView from './components/HistoryView'
@@ -45,7 +44,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<GlobalView />} />
         <Route path="/categorias" element={<CategoriesView />} />
-        <Route path="/categorias/:id" element={<CategoryDetail />} />
+        {/* El detalle del sobre ahora es una hoja dentro de Categorías. */}
+        <Route path="/categorias/:id" element={<Navigate to="/categorias" replace />} />
         <Route path="/aportaciones" element={<ContributionsView />} />
         <Route path="/aportaciones/:id" element={<MemberDetail />} />
         <Route path="/historial" element={<HistoryView />} />

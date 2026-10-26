@@ -16,9 +16,10 @@ export default function Header() {
           <button onClick={() => shiftMonth(1)} aria-label="Mes siguiente">›</button>
         </div>
         <div className="status-pills">
-          {pending > 0 && <span className="pill queue">⟳ {pending}</span>}
-          <span className={`pill ${online ? 'on' : 'off'}`}>{online ? 'En línea' : 'Sin red'}</span>
-          <button className="pill" onClick={() => navigate('/ajustes')} aria-label="Ajustes">
+          {pending > 0 && <span className="pill queue" aria-label={`${pending} cambios por subir`}>⟳ {pending}</span>}
+          {/* Estar en línea es lo normal: solo se avisa cuando no hay red. */}
+          {!online && <span className="pill off">Sin red</span>}
+          <button className="pill me" onClick={() => navigate('/ajustes')} aria-label="Ajustes">
             {me ? me.name : '⚙'}
           </button>
         </div>

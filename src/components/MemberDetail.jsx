@@ -1,46 +1,57 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { money, formatDate } from '../lib/format'
 import Meter from './Meter'
+import ContributionModal from './ContributionModal'
+import { MovementList, MovementRow } from './MovementRow'
 
 export default function MemberDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { memberRows, contributions, members, deleteContribution } = useApp()
+  const [editing, setEditing] = useState(null) // aportación | 'new' | null
 
   const m = memberRows.find((x) => x.id === id)
   if (!m) return <div className="content"><div className="empty">Persona no encontrada.</div></div>
 
-  const list = contributions.filter((c) => c.member_id === id)
-  const byName = (mid) => members.find((x) => x.id === mid)?.name || '—'
+  const list = contributions
+    .filter((c) => c.member_id === id)
+    .sort((a, b) => (a.paid_at === b.paid_at ? 0 : a.paid_at < b.paid_at ? 1 : -1))
+  const byName = (mid) => members.find((x) => x.id === mid)?.name
 
   return (
     <div className="content">
-      <button className="pill" style={{ alignSelf: 'flex-start' }} onClick={() => navigate(-1)}>‹ Volver</button>
-      <div className="hero" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        <div className="label" style={{ color: 'var(--muted)' }}>{m.name} — aportado</div>
+      <button className="pill back" onClick={() => navigate(-1)}>‹ Volver</button>
+      <div className="hero plain">
+        <div className="label">{m.name} · aportado</div>
         <div className="amount">{money(m.contributed)}</div>
-        <div className="sub" style={{ color: 'var(--muted)' }}>
-          {m.isComplete ? 'Meta completada ✓' : `Faltan ${money(m.pending)} de ${money(m.target)}`}
+        <div className="sub">
+          {m.isComplete ? 'Meta completada' : m.target > 0 ? `Faltan ${money(m.pending)} de ${money(m.target)}` : 'Sin meta este mes'}
         </div>
-        <div style={{ marginTop: 14 }}><Meter value={m.contributed} max={m.target} /></div>
+        <div style={{ marginTop: 14 }}><Meter value={m.contributed} max={m.target} goal /></div>
       </div>
 
-      <div className="section-title">Aportaciones ({list.length})</div>
-      {list.length === 0 ? (
-        <div className="empty">Sin aportaciones registradas.</div>
-      ) : (
-        <div className="card">
-          {list.map((c) => (
-            <div className="tx" key={c.id}>
-              <div className="tx-main">
-                <span className="tx-note">{money(c.amount)}{c.note ? ` · ${c.note}` : ''}</span>
-                <span className="tx-meta">{formatDate(c.paid_at)} · registró {byName(c.created_by)}</span>
-              </div>
-              <button className="del" onClick={() => deleteContribution(c.id)} aria-label="Eliminar">✕</button>
-            </div>
-          ))}
-        </div>
+      <div className="section-title">{list.length} {list.length === 1 ? 'aportación' : 'aportaciones'}</div>
+      <MovementList empty="Sin aportaciones registradas.">
+        {list.map((c) => (
+          <MovementRow key={c.id}
+            title={c.note || 'Aportación'}
+            subtitle={[formatDate(c.paid_at), byName(c.created_by) && `registró ${byName(c.created_by)}`].filter(Boolean).join(' · ')}
+            amount={money(c.amount)}
+            amountClass="credit"
+            onOpen={() => setEditing(c)}
+            onDelete={() => deleteContribution(c.id)}
+            deleteConfirm="¿Eliminar esta aportación?" />
+        ))}
+      </MovementList>
+      <button className="btn secondary" onClick={() => setEditing('new')}>Registrar aportación de {m.name}</button>
+
+      {editing && (
+        <ContributionModal
+          contribution={editing === 'new' ? undefined : editing}
+          presetMemberId={id}
+          onClose={() => setEditing(null)} />
       )}
     </div>
   )

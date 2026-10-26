@@ -24,7 +24,7 @@ export default function ContributionsView() {
                 ? <span className="badge-ok">✓ Completo</span>
                 : <span className="row-remain">{money(m.contributed)}</span>}
             </div>
-            <Meter value={m.contributed} max={m.target} />
+            <Meter value={m.contributed} max={m.target} goal />
             <div className="row-sub">
               <span>{money(m.contributed)} de {money(m.target)}</span>
               <span>{m.pending > 0 ? `faltan ${money(m.pending)}` : 'al corriente'}</span>

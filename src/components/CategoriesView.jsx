@@ -1,10 +1,13 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { money } from '../lib/format'
 import Meter from './Meter'
+import CategorySheet from './CategorySheet'
+import { remainClass } from './status'
 
 export default function CategoriesView() {
   const { categoryBalances, assignedSum, totalSpent } = useApp()
+  const [openCat, setOpenCat] = useState(null)
 
   return (
     <div className="content">
@@ -14,19 +17,21 @@ export default function CategoriesView() {
       </div>
       <div className="row-list">
         {categoryBalances.map((c) => (
-          <Link key={c.id} to={`/categorias/${c.id}`} className="row">
+          <button key={c.id} type="button" className="row" onClick={() => setOpenCat(c.id)}>
             <div className="row-top">
               <span className="row-name">{c.name}</span>
-              <span className={`row-remain ${c.remaining < 0 ? 'neg' : ''}`}>{money(c.remaining)}</span>
+              <span className={`row-remain ${remainClass(c)}`}>{money(c.remaining)}</span>
             </div>
             <Meter value={c.spent} max={c.assigned} />
             <div className="row-sub">
               <span>{money(c.spent)} de {money(c.assigned)}</span>
-              <span>{c.remaining < 0 ? 'Excedido' : 'restante'}</span>
+              <span>{c.remaining < 0 ? 'excedido' : 'restante'}</span>
             </div>
-          </Link>
+          </button>
         ))}
       </div>
+
+      {openCat && <CategorySheet categoryId={openCat} onClose={() => setOpenCat(null)} />}
     </div>
   )
 }

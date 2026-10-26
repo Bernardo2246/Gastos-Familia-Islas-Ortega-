@@ -300,6 +300,24 @@ export function AppProvider({ children }) {
     await persistRow('contributions', row)
   }, [monthRecord, activeMemberId, persistRow])
 
+  // Edición optimista: mismo upsert por id que el alta, así que también pasa por
+  // la cola si no hay red (last-write-wins por fila).
+  const updateExpense = useCallback(async (id, { category_id, amount, spent_at, note }) => {
+    const existing = expenses.find((e) => e.id === id)
+    if (!existing) return
+    const row = { ...existing, category_id, amount: Number(amount), spent_at, note: note || null }
+    setExpenses((x) => upsertById(x, row))
+    await persistRow('expenses', row)
+  }, [expenses, persistRow])
+
+  const updateContribution = useCallback(async (id, { member_id, amount, paid_at, note }) => {
+    const existing = contributions.find((c) => c.id === id)
+    if (!existing) return
+    const row = { ...existing, member_id, amount: Number(amount), paid_at, note: note || null }
+    setContributions((x) => upsertById(x, row))
+    await persistRow('contributions', row)
+  }, [contributions, persistRow])
+
   // Borrado optimista: si la fila aún no se había subido, se quita de la cola;
   // si no hay red o falla, el borrado entra a la cola y se sube al reconectar.
   const removeRow = useCallback(async (table, id) => {
@@ -420,7 +438,7 @@ export function AppProvider({ children }) {
     // derivado
     ...derived,
     // acciones
-    signIn, signOut, addExpense, addContribution, deleteExpense, deleteContribution,
+    signIn, signOut, addExpense, addContribution, updateExpense, updateContribution, deleteExpense, deleteContribution,
     setCategoryBudget, setMemberTarget, createMonth,
     addMember, updateMemberName, setMemberActive,
     updateCategoryName, setCategoryActive,

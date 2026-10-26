@@ -72,6 +72,16 @@ export function memberProgress({ members = [], contributions = [], targets = [] 
     })
 }
 
+// Gastos de un sobre, del más reciente al más viejo. Es la lista de la hoja del
+// sobre: su suma es exactamente el Gastado de categoryBalances.
+export function categoryExpenses(expenses, categoryId) {
+  return (expenses || [])
+    .filter((e) => e.category_id === categoryId)
+    .sort((a, b) => cmpDesc(a.spent_at, b.spent_at) || cmpDesc(a.created_at, b.created_at))
+}
+
+const cmpDesc = (a, b) => (a === b ? 0 : (a || '') < (b || '') ? 1 : -1)
+
 // Filas visibles: lo que tiene un borrado esperando en la cola offline no se
 // muestra ni cuenta en los totales.
 export function withoutPendingDeletes(rows, pendingIds) {

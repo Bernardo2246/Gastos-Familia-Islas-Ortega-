@@ -2,10 +2,13 @@
 // falsos y extremos para revisar el diseño a 390 px sin el login compartido.
 // main.jsx la importa detrás de import.meta.env.DEV, así que no llega al build.
 // Historial y Análisis consultan Supabase directo: aquí se ven vacíos.
+// /__preview?offline simula estar sin red; /__preview?graficas muestra las
+// gráficas de Análisis con datos falsos (incluye acumulado negativo).
 import { useCallback, useMemo, useState } from 'react'
 import { AppContext } from '../context/AppContext'
 import { monthView } from '../lib/finance'
 import App from '../App'
+import { GroupedBarChart, LineChart, ChartLegend } from '../components/Charts'
 
 const NOMBRES = [
   'Comida', 'Renta', 'Luz', 'Agua', 'Gas', 'Internet y teléfono de toda la casa',
@@ -65,7 +68,33 @@ function fakeMonth(year, month) {
   }
 }
 
+function ChartsPreview() {
+  const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov']
+  const gasto = [20000, 19307, 22100, 24314, 22438, 22000, 20888, 25167, 26000, 26129, 1250000]
+  const plan = [20000, 19307, 22100, 24314, 22438, 22000, 20888, 25167, 26000, 27946, 26000]
+  let acc = 0
+  const S = [{ name: 'Gastado', color: 'var(--series-1)' }, { name: 'Presupuestado', color: 'var(--series-2)' }]
+  return (
+    <div className="app"><div className="content">
+      <div className="card chart-card">
+        <div className="chart-title">Gastado vs presupuestado por mes</div>
+        <ChartLegend items={S} />
+        <GroupedBarChart data={meses.map((label, i) => ({ label, values: [gasto[i], plan[i]] }))} series={S} />
+      </div>
+      <div className="card chart-card">
+        <div className="chart-title">Ahorro / déficit acumulado</div>
+        <LineChart name="Acumulado" allowNegative color="var(--series-1)"
+          data={meses.map((label, i) => ({ label, value: (acc += [500, -800, 300, -2500, 0, 1200, -300, 900, -4000, 1787, 2500][i]) }))} />
+      </div>
+    </div></div>
+  )
+}
+
 export default function Preview() {
+  return location.search.includes('graficas') ? <ChartsPreview /> : <PreviewApp />
+}
+
+function PreviewApp() {
   const now = new Date()
   const [ym, setYm] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
   const [data, setData] = useState(() => fakeMonth(ym.year, ym.month))
@@ -87,7 +116,7 @@ export default function Preview() {
   const value = useMemo(() => ({
     session: { user: { id: 'preview' } }, authReady: true, isSupabaseConfigured: true,
     household: { id: 'h-preview', name: 'Vista previa' },
-    ...data, ym, loading: false, monthMissing: false, error: null, online: true, pending: 2,
+    ...data, ym, loading: false, monthMissing: false, error: null, online: !location.search.includes('offline'), pending: 2,
     activeMemberId, setActiveMemberId,
     ...monthView(data),
     signIn: noop, signOut: noop, createMonth: noop, reloadMonth: noop,

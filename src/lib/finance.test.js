@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   sumMoney, monthTotals, categoryBalances, memberProgress,
-  withoutPendingDeletes, semaforo, monthSummaries, monthView,
+  withoutPendingDeletes, semaforo, monthSummaries, monthView, categoryExpenses,
 } from './finance'
 
 const cat = (id, extra = {}) => ({ id, name: id, is_active: true, sort_order: 0, ...extra })
@@ -150,5 +150,21 @@ describe('monthView', () => {
     })
     expect(v.categoryBalances[0]).toMatchObject({ id: 'comida', remaining: 500, status: 'ok' })
     expect(v.memberRows[0]).toMatchObject({ id: 'angel', pending: 500 })
+  })
+})
+
+describe('categoryExpenses', () => {
+  const expenses = [
+    { id: '1', category_id: 'comida', amount: 100.1, spent_at: '2026-10-02', created_at: '2026-10-02T10:00:00Z' },
+    { id: '2', category_id: 'luz', amount: 500, spent_at: '2026-10-05', created_at: '2026-10-05T10:00:00Z' },
+    { id: '3', category_id: 'comida', amount: 200.2, spent_at: '2026-10-09', created_at: '2026-10-09T10:00:00Z' },
+    { id: '4', category_id: 'comida', amount: 0.7, spent_at: '2026-10-09', created_at: '2026-10-09T12:00:00Z' },
+  ]
+  it('todos los gastos del sobre, del más reciente al más viejo', () => {
+    expect(categoryExpenses(expenses, 'comida').map((e) => e.id)).toEqual(['4', '3', '1'])
+  })
+  it('la suma de la lista de cada sobre = su Gastado', () => {
+    const rows = categoryBalances({ categories: [cat('comida'), cat('luz')], expenses, budgets: [] })
+    for (const r of rows) expect(sumMoney(categoryExpenses(expenses, r.id), (e) => e.amount)).toBe(r.spent)
   })
 })
