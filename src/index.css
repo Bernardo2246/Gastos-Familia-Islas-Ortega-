@@ -202,7 +202,7 @@ button.pill::after { content: ''; position: absolute; inset: -12px -4px; }
   display: flex; align-items: flex-end; justify-content: center;
 }
 .sheet {
-  background: var(--bg-elev); width: 100%; max-width: var(--maxw);
+  background: var(--bg-elev); width: 100%; max-width: var(--maxw); overflow: hidden;
   max-height: 90dvh; display: flex; flex-direction: column;
   border-radius: 22px 22px 0 0;
   border: 1px solid var(--line); border-bottom: none;
@@ -221,8 +221,19 @@ button.pill::after { content: ''; position: absolute; inset: -12px -4px; }
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
   overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
   padding: 8px 18px 18px; display: flex; flex-direction: column; gap: 12px;
+  /* Solo scroll vertical: con overflow-y: auto el navegador también deja
+     arrastrar de lado (y rebotar) en cuanto algo mide más que la hoja. */
+  overflow-x: hidden; touch-action: pan-y;
 }
-.sheet-body > * { flex-shrink: 0; }
+.sheet-body > * { flex-shrink: 0; min-width: 0; max-width: 100%; }
+.sheet-body .input { min-width: 0; max-width: 100%; }
+/* iOS Safari ignora width: 100% en input[type=date] y le da un ancho mínimo
+   propio: sin esto el campo de fecha se sale de la hoja. */
+input[type="date"].input {
+  -webkit-appearance: none; appearance: none; display: block;
+  min-height: 50px; text-align: left;
+}
+input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
 .sheet-body .field { margin-bottom: 2px; }
 .sheet-foot {
   flex-shrink: 0; padding: 10px 18px calc(12px + env(safe-area-inset-bottom));
