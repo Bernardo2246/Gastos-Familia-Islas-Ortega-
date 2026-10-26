@@ -240,6 +240,19 @@ input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
   border-top: 1px solid var(--line);
 }
 .sheet-summary { display: flex; flex-direction: column; gap: 6px; }
+.sheet-amount.credit { color: var(--accent); }
+/* Detalle de un movimiento (MovementSheets.jsx): el concepto se lee completo. */
+.detail-note {
+  margin: 0; font-size: 17px; line-height: 1.45; font-weight: 600;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.detail-note.muted { font-weight: 400; }
+.detail-facts { margin: 0; border-top: 1px solid var(--line); }
+.detail-facts > div { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.detail-facts dt { color: var(--muted); font-size: 14px; flex-shrink: 0; }
+.detail-facts dd { margin: 0; font-size: 15px; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.sheet-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+.note-field { resize: none; overflow: hidden; line-height: 1.4; min-height: 50px; display: block; }
 .sheet-amount { font-size: 34px; font-weight: 800; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
 .sheet-amount.neg { color: var(--danger); }
 .sheet-amount.warn { color: var(--warn); }

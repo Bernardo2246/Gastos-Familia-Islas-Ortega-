@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext'
 import { money, formatDate } from '../lib/format'
 import Meter from './Meter'
 import CategorySheet from './CategorySheet'
-import ExpenseModal from './ExpenseModal'
+import MovementSheets from './MovementSheets'
 import { MovementList, MovementRow } from './MovementRow'
 import { remainClass } from './status'
 
@@ -42,7 +42,7 @@ export default function GlobalView() {
   } = useApp()
   const swipe = useMonthSwipe(shiftMonth)
   const [openCat, setOpenCat] = useState(null)
-  const [editing, setEditing] = useState(null)
+  const [selected, setSelected] = useState(null)
 
   if (monthMissing) {
     return (
@@ -117,7 +117,7 @@ export default function GlobalView() {
               title={e.note || catName(e.category_id) || 'Gasto'}
               subtitle={[catName(e.category_id), formatDate(e.spent_at), who(e.created_by)].filter(Boolean).join(' · ')}
               amount={money(e.amount)}
-              onOpen={() => setEditing(e)}
+              onOpen={() => setSelected({ kind: 'expense', id: e.id })}
               onDelete={() => deleteExpense(e.id)}
               deleteConfirm="¿Eliminar este gasto?" />
           ))}
@@ -125,7 +125,7 @@ export default function GlobalView() {
       </div>
 
       {openCat && <CategorySheet categoryId={openCat} onClose={() => setOpenCat(null)} />}
-      {editing && <ExpenseModal expense={editing} onClose={() => setEditing(null)} />}
+      <MovementSheets selected={selected} onClose={() => setSelected(null)} />
     </div>
   )
 }

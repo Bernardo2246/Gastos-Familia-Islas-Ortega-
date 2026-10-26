@@ -4,7 +4,7 @@ import { money, formatDate } from '../lib/format'
 import { categoryExpenses } from '../lib/finance'
 import BottomSheet from './BottomSheet'
 import Meter from './Meter'
-import ExpenseModal from './ExpenseModal'
+import MovementSheets from './MovementSheets'
 import { MovementList, MovementRow } from './MovementRow'
 import { remainClass } from './status'
 
@@ -12,7 +12,7 @@ import { remainClass } from './status'
 // es el Gastado del sobre: ambos salen de lib/finance.js).
 export default function CategorySheet({ categoryId, onClose }) {
   const { categoryBalances, expenses, members, deleteExpense } = useApp()
-  const [editing, setEditing] = useState(null) // gasto | 'new' | null
+  const [selected, setSelected] = useState(null)
   const cat = categoryBalances.find((c) => c.id === categoryId)
   if (!cat) return null
 
@@ -24,7 +24,7 @@ export default function CategorySheet({ categoryId, onClose }) {
       <BottomSheet
         title={cat.name}
         onClose={onClose}
-        footer={<button className="btn secondary" onClick={() => setEditing('new')}>Agregar gasto a {cat.name}</button>}
+        footer={<button className="btn secondary" onClick={() => setSelected({ kind: 'expense', id: 'new' })}>Agregar gasto a {cat.name}</button>}
       >
         <div className="sheet-summary">
           <div className={`sheet-amount ${remainClass(cat)}`}>{money(cat.remaining)}</div>
@@ -39,19 +39,14 @@ export default function CategorySheet({ categoryId, onClose }) {
               title={e.note || cat.name}
               subtitle={[formatDate(e.spent_at), who(e.created_by)].filter(Boolean).join(' · ')}
               amount={money(e.amount)}
-              onOpen={() => setEditing(e)}
+              onOpen={() => setSelected({ kind: 'expense', id: e.id })}
               onDelete={() => deleteExpense(e.id)}
               deleteConfirm="¿Eliminar este gasto?" />
           ))}
         </MovementList>
       </BottomSheet>
 
-      {editing && (
-        <ExpenseModal
-          expense={editing === 'new' ? undefined : editing}
-          presetCategoryId={categoryId}
-          onClose={() => setEditing(null)} />
-      )}
+      <MovementSheets selected={selected} presetCategoryId={categoryId} onClose={() => setSelected(null)} />
     </>
   )
 }

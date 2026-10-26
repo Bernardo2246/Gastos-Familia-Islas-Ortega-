@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { todayISO } from '../lib/format'
 import BottomSheet from './BottomSheet'
+import NoteField from './NoteField'
 
-// Alta y edición de una aportación. Con `contribution` la edita y ofrece eliminarla.
+// Alta y edición de una aportación (eliminar vive en la hoja de detalle, MovementSheets).
 export default function ContributionModal({ onClose, contribution, presetMemberId }) {
-  const { members, addContribution, updateContribution, deleteContribution } = useApp()
+  const { members, addContribution, updateContribution } = useApp()
   const active = members.filter((m) => m.is_active || m.id === contribution?.member_id)
   const [amount, setAmount] = useState(contribution ? String(contribution.amount) : '')
   const [memberId, setMemberId] = useState(contribution?.member_id || presetMemberId || active[0]?.id || '')
@@ -22,12 +23,6 @@ export default function ContributionModal({ onClose, contribution, presetMemberI
     if (contribution) await updateContribution(contribution.id, data)
     else await addContribution(data)
     setBusy(false)
-    onClose()
-  }
-
-  const remove = async () => {
-    if (!confirm('¿Eliminar esta aportación?')) return
-    await deleteContribution(contribution.id)
     onClose()
   }
 
@@ -67,11 +62,8 @@ export default function ContributionModal({ onClose, contribution, presetMemberI
 
       <div className="field">
         <label htmlFor="con-note">Nota (opcional)</label>
-        <input id="con-note" className="input" type="text" placeholder="Ej. Efectivo / 1ª parcialidad"
-          value={note} onChange={(e) => setNote(e.target.value)} />
+        <NoteField id="con-note" placeholder="Ej. Efectivo / 1ª parcialidad" value={note} onChange={setNote} />
       </div>
-
-      {contribution && <button type="button" className="btn danger" onClick={remove}>Eliminar aportación</button>}
     </BottomSheet>
   )
 }

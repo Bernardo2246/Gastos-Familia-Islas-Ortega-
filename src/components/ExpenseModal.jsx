@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { todayISO } from '../lib/format'
 import BottomSheet from './BottomSheet'
+import NoteField from './NoteField'
 
-// Alta y edición de un gasto. Con `expense` edita ese gasto y ofrece eliminarlo.
+// Alta y edición de un gasto (eliminar vive en la hoja de detalle, MovementSheets).
 export default function ExpenseModal({ onClose, expense, presetCategoryId }) {
-  const { categories: allCategories, addExpense, updateExpense, deleteExpense } = useApp()
+  const { categories: allCategories, addExpense, updateExpense } = useApp()
   // Al editar, la categoría del gasto se muestra aunque esté oculta.
   const categories = allCategories.filter((c) => c.is_active || c.id === expense?.category_id)
   const [amount, setAmount] = useState(expense ? String(expense.amount) : '')
@@ -23,12 +24,6 @@ export default function ExpenseModal({ onClose, expense, presetCategoryId }) {
     if (expense) await updateExpense(expense.id, data)
     else await addExpense(data)
     setBusy(false)
-    onClose()
-  }
-
-  const remove = async () => {
-    if (!confirm('¿Eliminar este gasto?')) return
-    await deleteExpense(expense.id)
     onClose()
   }
 
@@ -68,11 +63,8 @@ export default function ExpenseModal({ onClose, expense, presetCategoryId }) {
 
       <div className="field">
         <label htmlFor="exp-note">Nota (opcional)</label>
-        <input id="exp-note" className="input" type="text" placeholder="Ej. Súper de la semana"
-          value={note} onChange={(e) => setNote(e.target.value)} />
+        <NoteField id="exp-note" placeholder="Ej. Súper de la semana" value={note} onChange={setNote} />
       </div>
-
-      {expense && <button type="button" className="btn danger" onClick={remove}>Eliminar gasto</button>}
     </BottomSheet>
   )
 }

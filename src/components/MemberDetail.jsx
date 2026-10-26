@@ -3,14 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { money, formatDate } from '../lib/format'
 import Meter from './Meter'
-import ContributionModal from './ContributionModal'
+import MovementSheets from './MovementSheets'
 import { MovementList, MovementRow } from './MovementRow'
 
 export default function MemberDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { memberRows, contributions, members, deleteContribution } = useApp()
-  const [editing, setEditing] = useState(null) // aportación | 'new' | null
+  const [selected, setSelected] = useState(null)
 
   const m = memberRows.find((x) => x.id === id)
   if (!m) return <div className="content"><div className="empty">Persona no encontrada.</div></div>
@@ -40,19 +40,14 @@ export default function MemberDetail() {
             subtitle={[formatDate(c.paid_at), byName(c.created_by) && `registró ${byName(c.created_by)}`].filter(Boolean).join(' · ')}
             amount={money(c.amount)}
             amountClass="credit"
-            onOpen={() => setEditing(c)}
+            onOpen={() => setSelected({ kind: 'contribution', id: c.id })}
             onDelete={() => deleteContribution(c.id)}
             deleteConfirm="¿Eliminar esta aportación?" />
         ))}
       </MovementList>
-      <button className="btn secondary" onClick={() => setEditing('new')}>Registrar aportación de {m.name}</button>
+      <button className="btn secondary" onClick={() => setSelected({ kind: 'contribution', id: 'new' })}>Registrar aportación de {m.name}</button>
 
-      {editing && (
-        <ContributionModal
-          contribution={editing === 'new' ? undefined : editing}
-          presetMemberId={id}
-          onClose={() => setEditing(null)} />
-      )}
+      <MovementSheets selected={selected} presetMemberId={id} onClose={() => setSelected(null)} />
     </div>
   )
 }
