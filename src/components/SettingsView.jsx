@@ -29,7 +29,7 @@ function NumberRow({ label, value, onSave }) {
 }
 
 function MemberManager() {
-  const { members, addMember, updateMemberName, setMemberActive, incomeTargets, setMemberTarget } = useApp()
+  const { members, addMember, updateMemberName, setMemberActive, incomeTargets } = useApp()
   const [editId, setEditId] = useState(null)
   const [editName, setEditName] = useState('')
   const [newName, setNewName] = useState('')

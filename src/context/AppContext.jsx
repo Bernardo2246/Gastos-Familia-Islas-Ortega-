@@ -15,6 +15,9 @@ const upsertById = (arr, row) => {
   return copy
 }
 
+// Devuelve el mismo arreglo si el id no está (un DELETE de otro mes no re-renderiza).
+const removeById = (arr, id) => (id && arr.some((x) => x.id === id) ? arr.filter((x) => x.id !== id) : arr)
+
 function nowYM() {
   const d = new Date()
   return { year: d.getFullYear(), month: d.getMonth() + 1 }
@@ -82,12 +85,15 @@ export function AppProvider({ children }) {
   }, [setActiveMemberId])
 
   // ---------- Online / offline ----------
+  // El listener se registra una vez; lee reloadMonth de una ref para no quedarse
+  // con la versión del primer render (household aún en null → no recargaba).
+  const reloadMonthRef = useRef(() => {})
   useEffect(() => {
     const goOnline = async () => {
       setOnline(true)
       const sent = await flushQueue()
       await refreshPending()
-      if (sent > 0) reloadMonth()
+      if (sent > 0) reloadMonthRef.current()
     }
     const goOffline = () => setOnline(false)
     window.addEventListener('online', goOnline)
@@ -96,8 +102,7 @@ export function AppProvider({ children }) {
       window.removeEventListener('online', goOnline)
       window.removeEventListener('offline', goOffline)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    }, [refreshPending])
 
   // ---------- Carga base (hogar, miembros, categorías) ----------
   const loadBase = useCallback(async () => {
@@ -175,7 +180,7 @@ export function AppProvider({ children }) {
         monthRecord: m, monthBudgets: mb || [], incomeTargets: it || [],
         expenses: ex || [], contributions: co || [],
       })
-    } catch (err) {
+    } catch {
       const cached = await readCache(cacheKey)
       if (cached) {
         setMonthRecord(cached.monthRecord)
@@ -192,6 +197,7 @@ export function AppProvider({ children }) {
   const reloadMonth = useCallback(() => {
     if (household) loadMonth(household.id, ym.year, ym.month)
   }, [household, ym, loadMonth])
+  useEffect(() => { reloadMonthRef.current = reloadMonth }, [reloadMonth])
 
   // Carga inicial tras login
   useEffect(() => {
@@ -228,29 +234,35 @@ export function AppProvider({ children }) {
   }, [ym])
 
   // ---------- Realtime ----------
+  // Altas y cambios llegan filtrados por mes. Los DELETE NO: con RLS activo el
+  // `old` de un borrado solo trae la llave primaria (aunque la tabla tenga
+  // REPLICA IDENTITY FULL), así que un filtro por month_id nunca coincide y
+  // Supabase no entrega el evento. Por eso se escuchan sin filtro y se quita
+  // la fila solo si su id está en el estado del mes que se ve.
+  const monthId = monthRecord?.id
   useEffect(() => {
-    if (!monthRecord || !isSupabaseConfigured) return
-    const ch = supabase
-      .channel(`month-${monthRecord.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses', filter: `month_id=eq.${monthRecord.id}` },
-        (p) => {
-          if (p.eventType === 'DELETE') setExpenses((x) => x.filter((r) => r.id !== p.old.id))
-          else setExpenses((x) => upsertById(x, p.new))
-        })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'contributions', filter: `month_id=eq.${monthRecord.id}` },
-        (p) => {
-          if (p.eventType === 'DELETE') setContributions((x) => x.filter((r) => r.id !== p.old.id))
-          else setContributions((x) => upsertById(x, p.new))
-        })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'month_budgets', filter: `month_id=eq.${monthRecord.id}` },
-        (p) => setMonthBudgets((x) => upsertById(x, p.new)))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'income_targets', filter: `month_id=eq.${monthRecord.id}` },
-        (p) => setIncomeTargets((x) => upsertById(x, p.new)))
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'months', filter: `id=eq.${monthRecord.id}` },
-        (p) => setMonthRecord((m) => ({ ...m, ...p.new })))
+    if (!monthId || !isSupabaseConfigured) return
+    const tablas = [
+      ['expenses', setExpenses],
+      ['contributions', setContributions],
+      ['month_budgets', setMonthBudgets],
+      ['income_targets', setIncomeTargets],
+    ]
+    let ch = supabase.channel(`month-${monthId}`)
+    for (const [table, setRows] of tablas) {
+      ch = ch
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table, filter: `month_id=eq.${monthId}` },
+          (p) => setRows((x) => upsertById(x, p.new)))
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table, filter: `month_id=eq.${monthId}` },
+          (p) => setRows((x) => upsertById(x, p.new)))
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table },
+          (p) => setRows((x) => removeById(x, p.old?.id)))
+    }
+    ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'months', filter: `id=eq.${monthId}` },
+      (p) => setMonthRecord((m) => ({ ...m, ...p.new })))
       .subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [monthRecord?.id])
+  }, [monthId])
 
   // ---------- Acciones de escritura (optimistas + cola) ----------
   const persistRow = useCallback(async (table, row) => {
@@ -437,7 +449,7 @@ export function AppProvider({ children }) {
       categoryBalances, totalSpent, totalBudget, totalRemaining, assignedSum,
       memberRows, incomeGoal, totalCollected, incomePending: incomeGoal - totalCollected,
     }
-  }, [categories, expenses, monthBudgets, monthRecord, members, contributions, incomeTargets])
+  }, [categories, expenses, monthBudgets, members, contributions, incomeTargets])
 
   const value = {
     // estado
