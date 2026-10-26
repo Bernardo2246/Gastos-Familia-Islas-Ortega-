@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter, MemoryRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
 import { AppProvider } from './context/AppContext.jsx'
@@ -16,12 +16,27 @@ import { AppProvider } from './context/AppContext.jsx'
   document.addEventListener(evt, (e) => e.preventDefault())
 })
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <BrowserRouter>
-      <AppProvider>
-        <App />
-      </AppProvider>
-    </BrowserRouter>
-  </StrictMode>
-)
+const root = createRoot(document.getElementById('root'))
+
+// /__preview: la app con datos falsos para revisar diseño sin login. Solo en
+// `npm run dev`: en el build import.meta.env.DEV es false y Vite elimina esta
+// rama junto con src/dev/.
+if (import.meta.env.DEV && location.pathname.startsWith('/__preview')) {
+  import('./dev/Preview.jsx').then(({ default: Preview }) => root.render(
+    <StrictMode>
+      <MemoryRouter>
+        <Preview />
+      </MemoryRouter>
+    </StrictMode>
+  ))
+} else {
+  root.render(
+    <StrictMode>
+      <BrowserRouter>
+        <AppProvider>
+          <App />
+        </AppProvider>
+      </BrowserRouter>
+    </StrictMode>
+  )
+}
