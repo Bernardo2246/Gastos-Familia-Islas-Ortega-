@@ -4,6 +4,8 @@
 // Historial y Análisis consultan Supabase directo: aquí se ven vacíos.
 // /__preview?offline simula estar sin red; /__preview?graficas muestra las
 // gráficas de Análisis con datos falsos (incluye acumulado negativo).
+// /__preview?cuadre=faltante|sobrante|cuadrado ajusta la meta de Gisela para que
+// la meta de aportaciones quede $30 abajo, $1,500 arriba o igual a lo asignado.
 import { useCallback, useMemo, useState } from 'react'
 import { AppContext } from '../context/AppContext'
 import { monthView } from '../lib/finance'
@@ -52,6 +54,14 @@ function fakeMonth(year, month) {
     { id: 'p6', name: 'Futuro 1', is_active: false, is_person: true },
   ]
   const metas = { p1: 8000, p2: 1500000, p3: 5000, p4: 6000, p5: 0 }
+  const escenario = new URLSearchParams(location.search).get('cuadre')
+  const delta = { faltante: -30, sobrante: 1500, cuadrado: 0 }[escenario]
+  if (delta != null) {
+    const totalAsignado = assigned.reduce((a, b) => a + b, 0)
+    metas.p2 = 0
+    const resto = Object.values(metas).reduce((a, b) => a + b, 0)
+    metas.p2 = Math.round((totalAsignado + delta - resto) * 100) / 100
+  }
   const incomeTargets = Object.entries(metas).map(([member_id, target_amount], i) => ({
     id: `t${i}`, month_id: monthId, member_id, target_amount,
   }))
@@ -126,7 +136,8 @@ function PreviewApp() {
     updateContribution: async (id, patch) => set('contributions')((x) => x.map((r) => (r.id === id ? { ...r, ...patch } : r))),
     deleteExpense: async (id) => set('expenses')((x) => x.filter((r) => r.id !== id)),
     deleteContribution: async (id) => set('contributions')((x) => x.filter((r) => r.id !== id)),
-    setCategoryBudget: noop, setMemberTarget: noop,
+    setCategoryBudget: async (category_id, v) => set('monthBudgets')((x) => x.map((b) => (b.category_id === category_id ? { ...b, assigned_amount: v } : b))),
+    setMemberTarget: async (member_id, v) => set('incomeTargets')((x) => x.map((t) => (t.member_id === member_id ? { ...t, target_amount: v } : t))),
     addMember: noop, updateMemberName: noop, setMemberActive: noop,
     updateCategoryName: noop, setCategoryActive: noop,
     goToMonth, shiftMonth,

@@ -18,10 +18,22 @@ En producción: <https://gastos-familia.bernardoz72.workers.dev>
   entró, no contra el presupuesto.
 - **Semáforo por sobre:** verde < 80 %, ámbar 80–100 %, rojo > 100 %.
 
-Todas las fórmulas están en [`src/lib/finance.js`](src/lib/finance.js) y tienen
-pruebas en `finance.test.js`. Inicio, Categorías, Aportaciones, Historial, Análisis
-y la sincronización con Obsidian leen de ahí: si dos lugares muestran "el mismo
-total", salen de la misma función. No reescribas una fórmula en una pantalla.
+- **Cuadre:** Diferencia = Asignado − Meta de aportaciones. Si falta aportar se
+  marca en rojo, si sobra meta sin asignar en ámbar y cuadrado en verde
+  (Aportaciones, Ajustes → Presupuesto del mes, e Inicio solo si hay descuadre).
+
+**Totales del mes:** salen de la vista SQL `v_month_totals` (Asignado, Meta,
+Recaudado, Gastado, Diferencia, Restante, Falta por recaudar). La leen Inicio,
+Categorías, Aportaciones, Ajustes, Historial, Análisis y Obsidian. Mientras una
+escritura va en camino o espera en la cola offline, la app muestra la misma
+fórmula calculada en [`src/lib/finance.js`](src/lib/finance.js) y vuelve a la
+vista en cuanto la base la tiene (Ajustes → Versión → Totales dice cuál se ve).
+`node scripts/verify-month-totals.mjs` comprueba que las dos coincidan en todos
+los meses.
+
+El resto de las fórmulas (sobres, semáforo, avance por persona) están en
+`finance.js` con pruebas en `finance.test.js`. No reescribas una fórmula en una
+pantalla.
 
 ## Stack
 
@@ -49,7 +61,8 @@ npm run lint
 **Vista previa sin login:** con `npm run dev`, <http://localhost:5173/__preview>
 muestra la app completa con datos falsos y extremos (11 sobres, montos de
 millones, notas larguísimas, negativos). `?offline` simula estar sin red y
-`?graficas` muestra las gráficas de Análisis. Solo existe en desarrollo y no
+`?graficas` muestra las gráficas de Análisis y `?cuadre=faltante|sobrante|cuadrado`
+simula los tres casos del cuadre. Solo existe en desarrollo y no
 llega al build. Historial y Análisis consultan Supabase, así que ahí salen vacíos.
 
 ## Deploy

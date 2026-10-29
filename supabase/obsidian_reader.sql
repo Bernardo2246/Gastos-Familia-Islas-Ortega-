@@ -44,6 +44,9 @@ begin
   end loop;
 end $$;
 
+-- Totales del mes (security_invoker: aplica las políticas de arriba).
+grant select on v_month_totals to obsidian_reader;
+
 -- Verificación: debe listar 8 tablas, todas solo con SELECT.
 select table_name, privilege_type
 from information_schema.role_table_grants

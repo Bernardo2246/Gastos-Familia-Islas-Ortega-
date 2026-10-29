@@ -118,24 +118,31 @@ left join (
   group by month_id, category_id
 ) e on e.month_id = mb.month_id and e.category_id = mb.category_id;
 
--- Resumen global del mes
-create or replace view v_month_summary with (security_invoker = true) as
+-- Totales del mes: fuente oficial de Asignado, Meta de aportaciones,
+-- Recaudado, Gastado, Diferencia (Asignado − Meta) y Restante (Recaudado −
+-- Gastado). La leen todas las pantallas y Obsidian; src/lib/finance.js
+-- repite la fórmula solo mientras hay movimientos sin sincronizar.
+create or replace view v_month_totals with (security_invoker = true) as
 select
   m.id            as month_id,
   m.household_id,
   m.year,
   m.month,
-  m.total_budget,
   m.is_closed,
-  coalesce(ex.spent, 0)                       as total_spent,
-  m.total_budget - coalesce(ex.spent, 0)      as total_remaining,
-  coalesce(it.target_total, 0)                as income_goal,
-  coalesce(co.collected, 0)                   as total_collected,
-  coalesce(it.target_total, 0) - coalesce(co.collected, 0) as income_pending
+  coalesce(mb.assigned, 0)                              as assigned,
+  coalesce(it.goal, 0)                                  as income_goal,
+  coalesce(co.collected, 0)                             as collected,
+  coalesce(ex.spent, 0)                                 as spent,
+  -- > 0 falta aportar para cubrir lo asignado; < 0 sobra aportación sin asignar.
+  coalesce(mb.assigned, 0) - coalesce(it.goal, 0)       as difference,
+  coalesce(co.collected, 0) - coalesce(ex.spent, 0)     as remaining,
+  coalesce(it.goal, 0) - coalesce(co.collected, 0)      as income_pending,
+  greatest(coalesce(it.goal, 0) - coalesce(co.collected, 0), 0) as to_collect
 from months m
-left join (select month_id, sum(amount) spent       from expenses      group by month_id) ex on ex.month_id = m.id
-left join (select month_id, sum(target_amount) target_total from income_targets group by month_id) it on it.month_id = m.id
-left join (select month_id, sum(amount) collected   from contributions group by month_id) co on co.month_id = m.id;
+left join (select month_id, sum(assigned_amount) assigned from month_budgets  group by month_id) mb on mb.month_id = m.id
+left join (select month_id, sum(target_amount)   goal     from income_targets group by month_id) it on it.month_id = m.id
+left join (select month_id, sum(amount)          collected from contributions group by month_id) co on co.month_id = m.id
+left join (select month_id, sum(amount)          spent    from expenses       group by month_id) ex on ex.month_id = m.id;
 
 -- Aportación por persona en cada mes
 create or replace view v_member_contributions with (security_invoker = true) as
@@ -288,7 +295,7 @@ end $$;
 
 -- Las vistas usan security_invoker (aplican el RLS de quien consulta);
 -- además anon no tiene ningún privilegio sobre ellas.
-revoke all on v_category_balances, v_month_summary, v_member_contributions from anon;
+revoke all on v_category_balances, v_month_totals, v_member_contributions from anon;
 
 -- ============================================================
 -- REALTIME: publicar tablas que cambian en vivo

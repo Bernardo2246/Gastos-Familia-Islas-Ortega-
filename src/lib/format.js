@@ -18,6 +18,13 @@ export function money(n) {
   return Number.isInteger(v) ? mxn.format(v) : mxnCents.format(v)
 }
 
+// Con signo tipográfico: "−$510" en negativo y, con plus, "+$30" en positivo.
+export function signedMoney(n, { plus = false } = {}) {
+  const v = Number(n) || 0
+  if (v < 0) return `−${money(-v)}`
+  return plus && v > 0 ? `+${money(v)}` : money(v)
+}
+
 export function num(n) {
   return new Intl.NumberFormat('es-MX').format(Number(n) || 0)
 }

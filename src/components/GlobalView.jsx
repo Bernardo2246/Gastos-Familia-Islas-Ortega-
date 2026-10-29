@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { money, formatDate } from '../lib/format'
+import { money, signedMoney, formatDate } from '../lib/format'
+import { cuadre } from '../lib/finance'
 import Meter from './Meter'
 import CategorySheet from './CategorySheet'
+import CuadreAlert from './CuadreAlert'
 import MovementSheets from './MovementSheets'
 import { MovementList, MovementRow } from './MovementRow'
 import { remainClass } from './status'
@@ -37,7 +39,7 @@ export default function GlobalView() {
   const {
     monthMissing, createMonth, ym, shiftMonth,
     totalSpent, totalRemaining,
-    incomeGoal, totalCollected, incomePending,
+    incomeGoal, totalCollected, incomeToCollect, budgetDifference,
     categoryBalances, expenses, members, deleteExpense,
   } = useApp()
   const swipe = useMonthSwipe(shiftMonth)
@@ -69,7 +71,8 @@ export default function GlobalView() {
     <div className="content" {...swipe}>
       <div className={`hero ${neg ? 'neg' : ''}`}>
         <div className="label">Restante del mes</div>
-        <div className="amount">{money(totalRemaining)}</div>
+        <div className="amount">{signedMoney(totalRemaining)}</div>
+        {neg && <div className="sub"><strong>Gastado más de lo recaudado</strong></div>}
         <div className="sub">Recaudado {money(totalCollected)} − gastado {money(totalSpent)}</div>
         <div className="meter"><span style={{ width: `${Math.min(100, totalCollected > 0 ? (totalSpent / totalCollected) * 100 : totalSpent > 0 ? 100 : 0)}%` }} /></div>
       </div>
@@ -82,10 +85,12 @@ export default function GlobalView() {
         </div>
         <div className="stat">
           <div className="k">Falta recaudar</div>
-          <div className="v">{money(Math.max(0, incomePending))}</div>
+          <div className="v">{money(incomeToCollect)}</div>
           <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Meta {money(incomeGoal)}</div>
         </div>
       </div>
+
+      {cuadre(budgetDifference) !== 'ok' && <CuadreAlert to="/ajustes" />}
 
       <div>
         <div className="section-title flex-between">

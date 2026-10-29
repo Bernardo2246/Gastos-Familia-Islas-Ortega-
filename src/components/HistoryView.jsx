@@ -14,18 +14,9 @@ export default function HistoryView() {
   const load = useCallback(async () => {
     if (!household) return
     setLoading(true)
-    // Se calcula con lib/finance.js (no con la vista v_month_summary) para que
-    // el restante de cada mes sea el mismo que muestra Inicio.
-    const { data: months } = await supabase.from('months').select('id,year,month').eq('household_id', household.id)
-    const ids = (months || []).map((m) => m.id)
-    const [ex, co, mb] = ids.length ? await Promise.all([
-      supabase.from('expenses').select('month_id,category_id,amount').in('month_id', ids),
-      supabase.from('contributions').select('month_id,amount').in('month_id', ids),
-      supabase.from('month_budgets').select('month_id,category_id,assigned_amount').in('month_id', ids),
-    ]) : [{}, {}, {}]
-    const res = monthSummaries({
-      months: months || [], expenses: ex.data || [], contributions: co.data || [], budgets: mb.data || [],
-    })
+    // Totales de la vista v_month_totals: los mismos que muestra Inicio.
+    const { data } = await supabase.from('v_month_totals').select('*').eq('household_id', household.id)
+    const res = monthSummaries({ months: (data || []).map((r) => ({ id: r.month_id, year: r.year, month: r.month })), totals: data || [] })
     setRows(res.reverse())
     setLoading(false)
   }, [household])

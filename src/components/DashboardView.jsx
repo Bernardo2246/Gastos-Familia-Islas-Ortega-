@@ -62,15 +62,17 @@ export default function DashboardView() {
         const months = range === 'all' ? base : base.slice(-Number(range))
         const ids = months.map((m) => m.id)
         if (ids.length === 0) { if (!cancelled) { setRaw({ months: [], expenses: [], contributions: [], budgets: [], targets: [], hasCurrent, currentLabel: monthLabel(cur.year, cur.month) }); setLoading(false) } ; return }
-        const [ex, co, mb, it] = await Promise.all([
+        const [ex, co, mb, it, mt] = await Promise.all([
           supabase.from('expenses').select('month_id,category_id,amount,spent_at').in('month_id', ids),
           supabase.from('contributions').select('month_id,member_id,amount,paid_at').in('month_id', ids),
           supabase.from('month_budgets').select('month_id,category_id,assigned_amount').in('month_id', ids),
           supabase.from('income_targets').select('month_id,member_id,target_amount').in('month_id', ids),
+          supabase.from('v_month_totals').select('*').in('month_id', ids),
         ])
         if (cancelled) return
         setRaw({
           months, expenses: ex.data || [], contributions: co.data || [], budgets: mb.data || [], targets: it.data || [],
+          totals: mt.data || [],
           hasCurrent, currentLabel: monthLabel(cur.year, cur.month),
         })
       } catch {

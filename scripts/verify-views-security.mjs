@@ -16,7 +16,7 @@ for (const line of readFileSync(resolve(__dirname, '..', '.env.local'), 'utf8').
   if (m) process.env[m[1]] ??= m[2]
 }
 
-const VISTAS = ['v_category_balances', 'v_month_summary', 'v_member_contributions']
+const VISTAS = ['v_category_balances', 'v_month_totals', 'v_member_contributions']
 const client = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
 await client.connect()
 let fallas = 0

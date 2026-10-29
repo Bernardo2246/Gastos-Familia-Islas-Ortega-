@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   sumMoney, monthTotals, categoryBalances, memberProgress,
   withoutPendingDeletes, semaforo, monthSummaries, monthView, categoryExpenses,
+  totalsFromView, cuadre,
 } from './finance'
 
 const cat = (id, extra = {}) => ({ id, name: id, is_active: true, sort_order: 0, ...extra })
@@ -33,6 +34,48 @@ describe('monthTotals', () => {
   })
   it('mes vacío no produce NaN', () => {
     expect(monthTotals({})).toMatchObject({ collected: 0, spent: 0, remaining: 0, budget: 0, goal: 0 })
+  })
+})
+
+describe('cuadre Asignado vs Meta de aportaciones', () => {
+  const t = (assigned, goal) => monthTotals({ budgets: [{ assigned_amount: assigned }], targets: [{ target_amount: goal }] })
+  it('octubre 2026: $27,946 asignado contra $27,916 de meta → faltan $30', () => {
+    expect(t(27946, 27916).difference).toBe(30)
+    expect(cuadre(t(27946, 27916).difference)).toBe('short')
+  })
+  it('meta mayor que lo asignado → aportado de más sin asignar', () => {
+    expect(t(26000, 27500).difference).toBe(-1500)
+    expect(cuadre(-1500)).toBe('surplus')
+  })
+  it('iguales → cuadrado, sin arrastrar error de flotante', () => {
+    expect(cuadre(t(0.3, 0.1 + 0.2).difference)).toBe('ok')
+    expect(cuadre(0.001)).toBe('ok')
+  })
+  it('falta por recaudar nunca es negativo', () => {
+    const x = monthTotals({ contributions: [{ amount: 900 }], targets: [{ target_amount: 500 }] })
+    expect(x.incomePending).toBe(-400)
+    expect(x.toCollect).toBe(0)
+  })
+})
+
+describe('totalsFromView', () => {
+  const fila = {
+    assigned: '26000.00', income_goal: '27500.00', collected: '17500.00', spent: '0',
+    difference: '-1500.00', remaining: '17500.00', income_pending: '10000.00', to_collect: '10000.00',
+  }
+  it('la fila de v_month_totals llega con los nombres y cifras de monthTotals', () => {
+    expect(totalsFromView(fila)).toEqual(monthTotals({
+      budgets: [{ assigned_amount: 26000 }], targets: [{ target_amount: 27500 }], contributions: [{ amount: 17500 }],
+    }))
+  })
+  it('monthView usa la fila de la base cuando viene, y lo dice', () => {
+    const v = monthView({ totals: fila })
+    expect(v).toMatchObject({ budgetDifference: -1500, incomeToCollect: 10000, totalsSource: 'db' })
+    expect(monthView({}).totalsSource).toBe('local')
+  })
+  it('monthSummaries prefiere la fila de la base del mes', () => {
+    const [r] = monthSummaries({ months: [{ id: 'm', year: 2026, month: 11 }], totals: [{ ...fila, month_id: 'm' }] })
+    expect(r).toMatchObject({ budget: 26000, goal: 27500, difference: -1500 })
   })
 })
 

@@ -364,3 +364,22 @@ input[type="date"].input::-webkit-date-and-time-value { text-align: left; }
 @media (prefers-reduced-motion: reduce) {
   .sheet, .mv-content, .meter > span { animation: none; transition: none; }
 }
+
+/* Cuadre Asignado vs Meta de aportaciones: mismos colores y barra que un sobre excedido */
+.cuadre { --c: var(--accent); display: block; background: var(--bg-card); border: 1px solid color-mix(in srgb, var(--c) 45%, var(--line)); border-radius: 14px; padding: 12px 14px; color: inherit; }
+.cuadre.short { --c: var(--danger); }
+.cuadre.surplus { --c: var(--warn); }
+.cuadre-msg { color: var(--c); font-weight: 800; font-size: 15px; overflow-wrap: anywhere; }
+.cuadre .meter { margin-top: 9px; }
+.cuadre .row-sub { gap: 8px; flex-wrap: wrap; }
+a.cuadre .cuadre-msg::after { content: ' ›'; color: var(--muted); }
+
+/* Presupuesto del mes (Ajustes) */
+.budget-summary .tx { gap: 12px; align-items: baseline; }
+.budget-summary .tx-note { min-width: 0; }
+.budget-summary .tx-note small { display: block; color: var(--muted); font-size: 12px; }
+.budget-summary .tx-amt { white-space: nowrap; flex-shrink: 0; }
+.budget-summary .tx-amt.neg { color: var(--danger); }
+.budget-summary .tx-amt.warn { color: var(--warn); }
+.budget-summary .tx-amt.ok { color: var(--accent); }
+.budget-summary .cuadre { margin: 4px 0 12px; }

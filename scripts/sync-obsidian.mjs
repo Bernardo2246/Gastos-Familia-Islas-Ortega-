@@ -25,7 +25,7 @@ import {
   rutaBoveda,
   verificarAcceso,
 } from '../../Finanzas-Personales/scripts/obsidian/boveda.mjs'
-import { categoryBalances, memberProgress, monthSummaries, monthTotals } from '../src/lib/finance.js'
+import { categoryBalances, memberProgress, monthSummaries, monthTotals, totalsFromView } from '../src/lib/finance.js'
 
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const CARPETA = 'Gastos Familia'
@@ -75,6 +75,7 @@ async function cargarDeSupabase() {
       targets: await q('select month_id, member_id, target_amount from income_targets'),
       expenses: await q('select month_id, category_id, amount from expenses'),
       contributions: await q('select month_id, member_id, amount from contributions'),
+      totals: await q('select * from v_month_totals'),
     }
     await client.query('commit')
     return datos
@@ -104,8 +105,10 @@ function ahoraMx(ahora) {
 function corteDelMes(d, mes) {
   const de = (rows) => rows.filter((r) => r.month_id === mes.id)
   const expenses = de(d.expenses), contributions = de(d.contributions), budgets = de(d.budgets), targets = de(d.targets)
+  // Totales de la vista v_month_totals; un volcado de --prueba sin ella los calcula.
+  const fila = (d.totals || []).find((r) => r.month_id === mes.id)
   return {
-    totales: monthTotals({ expenses, contributions, budgets, targets }),
+    totales: fila ? totalsFromView(fila) : monthTotals({ expenses, contributions, budgets, targets }),
     sobres: categoryBalances({ categories: d.categories, expenses, budgets }),
     personas: memberProgress({ members: d.members, contributions, targets }),
   }
@@ -123,6 +126,7 @@ function cuerpoDelMes(mes, corte) {
     `| **Restante** (Recaudado − Gastado) | **${dinero(t.remaining)}** |`,
     `| Presupuesto (suma de sobres) | ${dinero(t.budget)} |`,
     `| Meta de aportaciones | ${dinero(t.goal)} |`,
+    `| Diferencia (Presupuesto − Meta) | ${dinero(t.difference)} |`,
     '',
     '## Sobres',
     '',
@@ -215,7 +219,7 @@ export function generarNotas(d, ahoraDate) {
   const meses = datos.months
     .filter((m) => indice(m) >= indice(DESDE) && indice(m) <= actual)
     .sort((a, b) => indice(a) - indice(b))
-  const resumen = monthSummaries({ months: meses, expenses: d.expenses, contributions: d.contributions, budgets: d.budgets, targets: d.targets })
+  const resumen = monthSummaries({ months: meses, expenses: d.expenses, contributions: d.contributions, budgets: d.budgets, targets: d.targets, totals: d.totals })
 
   const notas = []
   const mesActual = meses.find((m) => indice(m) === actual)

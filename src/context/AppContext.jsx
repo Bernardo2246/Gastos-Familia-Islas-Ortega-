@@ -3,7 +3,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { enqueue, queueCount, saveCache, readCache, dropQueuedUpserts, pendingDeleteIds } from '../lib/db'
 import { flushQueue } from '../lib/sync'
 import { todayISO } from '../lib/format'
-import { monthView, withoutPendingDeletes } from '../lib/finance'
+import { monthView, monthTotals, totalsFromView, withoutPendingDeletes } from '../lib/finance'
 
 // Exportado solo para que la vista previa de desarrollo (src/dev/) lo provea con datos falsos.
 export const AppContext = createContext(null)
@@ -43,6 +43,9 @@ export function AppProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [monthMissing, setMonthMissing] = useState(false)
   const [error, setError] = useState(null)
+
+  // Fila de v_month_totals y la huella de las filas locales con que se pidió.
+  const [dbTotals, setDbTotals] = useState(null)
 
   const [online, setOnline] = useState(navigator.onLine)
   const [pending, setPending] = useState(0)
@@ -265,16 +268,49 @@ export function AppProvider({ children }) {
     return () => { supabase.removeChannel(ch) }
   }, [monthId])
 
+  // ---------- Totales del mes (vista v_month_totals) ----------
+  // La base es la fuente oficial. Mientras una escritura va en camino o espera
+  // en la cola offline, la base aún no la tiene: en ese rato se muestran los
+  // totales que calcula finance.js con la misma fórmula. La fila de la base se
+  // usa solo si se pidió con las mismas filas locales que hay en pantalla.
+  const localTotals = useMemo(
+    () => monthTotals({ expenses, contributions, budgets: monthBudgets, targets: incomeTargets }),
+    [expenses, contributions, monthBudgets, incomeTargets],
+  )
+  const localKey = JSON.stringify(localTotals)
+  const inFlight = useRef(0)
+  const latest = useRef({})
+  useEffect(() => { latest.current = { monthId: monthRecord?.id, key: localKey } })
+
+  const refetchTotals = useCallback(async () => {
+    const { monthId, key } = latest.current
+    if (!monthId || !isSupabaseConfigured || !navigator.onLine || inFlight.current > 0) return
+    if (await queueCount() > 0) return
+    const { data, error } = await supabase.from('v_month_totals').select('*').eq('month_id', monthId).maybeSingle()
+    if (!error && data) setDbTotals({ monthId, key, row: data })
+  }, [])
+
+  useEffect(() => {
+    const t = setTimeout(refetchTotals, 400)
+    return () => clearTimeout(t)
+  }, [localKey, monthRecord?.id, online, pending, refetchTotals])
+
   // ---------- Acciones de escritura (optimistas + cola) ----------
   const persistRow = useCallback(async (table, row) => {
-    if (navigator.onLine) {
-      const { error } = await supabase.from(table).upsert(row, { onConflict: 'id' })
-      if (error) { await enqueue({ table, row }); await refreshPending() }
-    } else {
-      await enqueue({ table, row })
-      await refreshPending()
+    inFlight.current++
+    try {
+      if (navigator.onLine) {
+        const { error } = await supabase.from(table).upsert(row, { onConflict: 'id' })
+        if (error) { await enqueue({ table, row }); await refreshPending() }
+      } else {
+        await enqueue({ table, row })
+        await refreshPending()
+      }
+    } finally {
+      inFlight.current--
     }
-  }, [refreshPending])
+    refetchTotals()
+  }, [refreshPending, refetchTotals])
 
   const addExpense = useCallback(async ({ category_id, amount, spent_at, note }) => {
     if (!monthRecord) return
@@ -321,15 +357,21 @@ export function AppProvider({ children }) {
   // Borrado optimista: si la fila aún no se había subido, se quita de la cola;
   // si no hay red o falla, el borrado entra a la cola y se sube al reconectar.
   const removeRow = useCallback(async (table, id) => {
-    await dropQueuedUpserts(table, id)
-    let ok = false
-    if (navigator.onLine) {
-      const { error } = await supabase.from(table).delete().eq('id', id)
-      ok = !error
+    inFlight.current++
+    try {
+      await dropQueuedUpserts(table, id)
+      let ok = false
+      if (navigator.onLine) {
+        const { error } = await supabase.from(table).delete().eq('id', id)
+        ok = !error
+      }
+      if (!ok) await enqueue({ table, op: 'delete', id })
+      await refreshPending()
+    } finally {
+      inFlight.current--
     }
-    if (!ok) await enqueue({ table, op: 'delete', id })
-    await refreshPending()
-  }, [refreshPending])
+    refetchTotals()
+  }, [refreshPending, refetchTotals])
 
   const deleteExpense = useCallback(async (id) => {
     setExpenses((x) => x.filter((r) => r.id !== id))
@@ -424,10 +466,15 @@ export function AppProvider({ children }) {
   }, [])
 
   // ---------- Cálculos derivados (fórmulas en lib/finance.js) ----------
+  const fresh = dbTotals && dbTotals.monthId === monthRecord?.id && dbTotals.key === localKey && pending === 0
+  const totals = fresh ? dbTotals.row : null
   const derived = useMemo(
-    () => monthView({ categories, members, expenses, contributions, monthBudgets, incomeTargets }),
-    [categories, members, expenses, contributions, monthBudgets, incomeTargets],
+    () => monthView({ categories, members, expenses, contributions, monthBudgets, incomeTargets, totals }),
+    [categories, members, expenses, contributions, monthBudgets, incomeTargets, totals],
   )
+  if (import.meta.env.DEV && totals && JSON.stringify(totalsFromView(totals)) !== localKey) {
+    console.warn('v_month_totals y finance.js no coinciden', totals, localTotals)
+  }
 
   const value = {
     // estado

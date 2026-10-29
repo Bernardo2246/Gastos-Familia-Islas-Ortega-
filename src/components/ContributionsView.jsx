@@ -2,18 +2,21 @@ import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { money } from '../lib/format'
 import Meter from './Meter'
+import CuadreAlert from './CuadreAlert'
 
 export default function ContributionsView() {
-  const { memberRows, incomeGoal, totalCollected, incomePending } = useApp()
+  const { memberRows, incomeGoal, totalCollected, incomeToCollect } = useApp()
 
   return (
     <div className="content">
       <div className="hero" style={{ background: 'linear-gradient(160deg,#1c3a6b,#10204a)', borderColor: 'var(--line)' }}>
         <div className="label" style={{ color: '#bcd2f5' }}>Recaudado del mes</div>
         <div className="amount">{money(totalCollected)}</div>
-        <div className="sub" style={{ color: '#bcd2f5' }}>Meta {money(incomeGoal)} · faltan {money(Math.max(0, incomePending))}</div>
+        <div className="sub" style={{ color: '#bcd2f5' }}>Meta {money(incomeGoal)} · faltan {money(incomeToCollect)}</div>
         <div className="meter" style={{ marginTop: 14 }}><span style={{ width: `${incomeGoal > 0 ? Math.min(100, (totalCollected / incomeGoal) * 100) : 0}%` }} /></div>
       </div>
+
+      <CuadreAlert />
 
       <div className="row-list">
         {memberRows.map((m) => (

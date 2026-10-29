@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { money } from '../lib/format'
+import { money, signedMoney } from '../lib/format'
+import { cuadre } from '../lib/finance'
+import CuadreAlert from './CuadreAlert'
+
+// Color de la Diferencia: el mismo semáforo que CuadreAlert.
+const DIF_CLASS = { short: 'neg', surplus: 'warn', ok: 'ok' }
 
 const buildLabel = new Intl.DateTimeFormat('es-MX', {
   dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Mexico_City',
@@ -141,10 +146,10 @@ function CategoryManager() {
 
 export default function SettingsView() {
   const {
-    monthRecord, totalBudget, assignedSum,
+    monthRecord, totalBudget, incomeGoal, budgetDifference, totalCollected, incomeToCollect,
     categoryBalances, setCategoryBudget,
     members, incomeTargets, setMemberTarget,
-    activeMemberId, setActiveMemberId, signOut,
+    activeMemberId, setActiveMemberId, signOut, totalsSource,
   } = useApp()
 
   const targetOf = (mid) => incomeTargets.find((t) => t.member_id === mid)?.target_amount ?? 0
@@ -164,17 +169,27 @@ export default function SettingsView() {
       {monthRecord && (
         <>
           <div className="section-title">Presupuesto del mes</div>
-          <div className="card">
+          <div className="card budget-summary">
             <div className="tx">
-              <span className="tx-note">Presupuesto total</span>
+              <span className="tx-note">Asignado a categorías</span>
               <span className="tx-amt">{money(totalBudget)}</span>
             </div>
             <div className="tx">
-              <span className="muted">Suma asignada a categorías</span>
-              <span className="tx-amt">{money(assignedSum)}</span>
+              <span className="tx-note">Total a aportar<small>Meta de aportaciones</small></span>
+              <span className="tx-amt">{money(incomeGoal)}</span>
             </div>
-            <div className="muted" style={{ fontSize: 12, padding: '4px 0 0' }}>
-              El presupuesto total se calcula solo, sumando lo asignado a cada categoría abajo.
+            <div className="tx">
+              <span className="tx-note">Diferencia<small>Asignado − meta</small></span>
+              <span className={`tx-amt ${DIF_CLASS[cuadre(budgetDifference)]}`}>{signedMoney(budgetDifference, { plus: true })}</span>
+            </div>
+            <CuadreAlert detail={false} />
+            <div className="tx">
+              <span className="tx-note">Ya aportado<small>Recaudado</small></span>
+              <span className="tx-amt">{money(totalCollected)}</span>
+            </div>
+            <div className="tx">
+              <span className="tx-note">Falta por recaudar</span>
+              <span className="tx-amt">{money(incomeToCollect)}</span>
             </div>
           </div>
 
@@ -207,6 +222,10 @@ export default function SettingsView() {
         <div className="tx">
           <span className="tx-note">Commit</span>
           <span className="tx-amt">{__COMMIT__}</span>
+        </div>
+        <div className="tx">
+          <span className="tx-note">Totales</span>
+          <span className="tx-amt">{totalsSource === 'db' ? 'Base de datos' : 'En el teléfono'}</span>
         </div>
         <div className="muted" style={{ fontSize: 12, padding: '4px 0 0' }}>
           Si acabas de actualizar y esta fecha es vieja, cierra la app por completo y vuélvela a abrir.

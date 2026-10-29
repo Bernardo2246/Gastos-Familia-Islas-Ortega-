@@ -14,12 +14,12 @@ const sum = sumMoney
  */
 export function computeDashboard({
   months = [], expenses = [], contributions = [],
-  budgets = [], targets = [], categories = [], members = [],
+  budgets = [], targets = [], categories = [], members = [], totals = [],
 }) {
   const sorted = [...months].sort(chrono)
 
   // ---- Agregados por mes (mismas fórmulas que el mes abierto: lib/finance.js) ----
-  const perMonth = monthSummaries({ months: sorted, expenses, contributions, budgets, targets }).map((p) => ({
+  const perMonth = monthSummaries({ months: sorted, expenses, contributions, budgets, targets, totals }).map((p) => ({
     ...p,
     label: monthName(p.month).slice(0, 3),
     net: p.remaining,

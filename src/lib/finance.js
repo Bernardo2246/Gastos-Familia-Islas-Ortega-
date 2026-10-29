@@ -1,6 +1,9 @@
 // Única fuente de las fórmulas de dinero de la app. Inicio, Categorías,
 // Aportaciones, Historial, Análisis y la sincronización con Obsidian leen de
 // aquí: si dos pantallas muestran "el mismo total", salen de la misma función.
+// Los totales del mes vienen de la vista SQL v_month_totals (totalsFromView);
+// monthTotals repite su fórmula solo mientras hay movimientos sin sincronizar
+// (scripts/verify-month-totals.mjs comprueba que las dos coincidan).
 // Funciones puras, sin React ni Supabase (scripts/sync-obsidian.mjs las importa
 // directo con node).
 
@@ -20,7 +23,8 @@ export function semaforo(spent, assigned) {
 }
 
 // Totales del mes. Restante = Recaudado − Gastado: se mide contra el dinero que
-// ya entró, no contra el presupuesto planeado.
+// ya entró, no contra el presupuesto planeado. Diferencia = Asignado − Meta de
+// aportaciones. Misma fórmula que la vista v_month_totals.
 export function monthTotals({ expenses = [], contributions = [], budgets = [], targets = [] } = {}) {
   const spent = sumMoney(expenses, (e) => e.amount)
   const collected = sumMoney(contributions, (c) => c.amount)
@@ -30,7 +34,28 @@ export function monthTotals({ expenses = [], contributions = [], budgets = [], t
     spent, collected, budget, goal,
     remaining: round2(collected - spent),
     incomePending: round2(goal - collected),
+    toCollect: Math.max(0, round2(goal - collected)),
+    difference: round2(budget - goal),
   }
+}
+
+// Una fila de v_month_totals con los mismos nombres que monthTotals
+// (Postgres manda numeric como texto).
+export function totalsFromView(r) {
+  const n = (v) => round2(Number(v) || 0)
+  return {
+    spent: n(r.spent), collected: n(r.collected), budget: n(r.assigned), goal: n(r.income_goal),
+    remaining: n(r.remaining), incomePending: n(r.income_pending),
+    toCollect: n(r.to_collect), difference: n(r.difference),
+  }
+}
+
+// Cuadre entre lo asignado a sobres y la meta de aportaciones:
+// 'short' (rojo) falta aportar para cubrir lo asignado, 'surplus' (ámbar) hay
+// aportación de más sin asignar, 'ok' (verde) cuadrados.
+export function cuadre(difference) {
+  const d = round2(difference)
+  return d > 0 ? 'short' : d < 0 ? 'surplus' : 'ok'
 }
 
 // Saldo por sobre. Una categoría oculta deja de aparecer, salvo que ese mes ya
@@ -89,18 +114,21 @@ export function withoutPendingDeletes(rows, pendingIds) {
 }
 
 // Un renglón por mes (orden cronológico) con las mismas fórmulas que el mes
-// abierto. Lo usan Historial, Análisis y Evolución en Obsidian.
-export function monthSummaries({ months = [], expenses = [], contributions = [], budgets = [], targets = [] } = {}) {
+// abierto. Lo usan Historial, Análisis y Evolución en Obsidian. `totals` son
+// filas de v_month_totals; un mes sin fila se calcula con monthTotals.
+export function monthSummaries({ months = [], expenses = [], contributions = [], budgets = [], targets = [], totals = [] } = {}) {
   const by = (rows) => {
     const out = {}
     for (const r of rows) (out[r.month_id] ||= []).push(r)
     return out
   }
   const ex = by(expenses), co = by(contributions), bu = by(budgets), ta = by(targets)
+  const fromDb = {}
+  for (const r of totals) fromDb[r.month_id] = totalsFromView(r)
   return [...months]
     .sort((a, b) => a.year * 12 + a.month - (b.year * 12 + b.month))
     .map((m) => {
-      const t = monthTotals({ expenses: ex[m.id], contributions: co[m.id], budgets: bu[m.id], targets: ta[m.id] })
+      const t = fromDb[m.id] || monthTotals({ expenses: ex[m.id], contributions: co[m.id], budgets: bu[m.id], targets: ta[m.id] })
       const spentByCat = groupSum(ex[m.id] || [], (e) => e.category_id, (e) => e.amount)
       const budgetByCat = groupSum(bu[m.id] || [], (b) => b.category_id, (b) => b.assigned_amount)
       const cats = new Set([...Object.keys(spentByCat), ...Object.keys(budgetByCat)])
@@ -111,9 +139,12 @@ export function monthSummaries({ months = [], expenses = [], contributions = [],
 }
 
 // Todo lo derivado del mes abierto, con los nombres que leen las pantallas
-// (AppContext y la vista previa de desarrollo lo exponen tal cual).
-export function monthView({ categories = [], members = [], expenses = [], contributions = [], monthBudgets = [], incomeTargets = [] } = {}) {
-  const t = monthTotals({ expenses, contributions, budgets: monthBudgets, targets: incomeTargets })
+// (AppContext y la vista previa de desarrollo lo exponen tal cual). `totals` es
+// la fila de v_month_totals cuando está al día; si no, se calcula aquí.
+export function monthView({ categories = [], members = [], expenses = [], contributions = [], monthBudgets = [], incomeTargets = [], totals = null } = {}) {
+  const t = totals
+    ? totalsFromView(totals)
+    : monthTotals({ expenses, contributions, budgets: monthBudgets, targets: incomeTargets })
   return {
     categoryBalances: categoryBalances({ categories, expenses, budgets: monthBudgets }),
     memberRows: memberProgress({ members, contributions, targets: incomeTargets }),
@@ -122,7 +153,9 @@ export function monthView({ categories = [], members = [], expenses = [], contri
     totalBudget: t.budget, assignedSum: t.budget,
     totalCollected: t.collected,
     totalRemaining: t.remaining,
-    incomeGoal: t.goal, incomePending: t.incomePending,
+    incomeGoal: t.goal, incomePending: t.incomePending, incomeToCollect: t.toCollect,
+    budgetDifference: t.difference,
+    totalsSource: totals ? 'db' : 'local',
   }
 }
 
